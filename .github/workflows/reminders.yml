@@ -1,0 +1,17 @@
+name: PlantLive reminders
+
+on:
+  schedule:
+    - cron: "15 8 * * *"
+  workflow_dispatch:
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send due reminders
+        shell: bash
+        run: |
+          curl --fail --retry 4 --retry-delay 20 \
+            -X POST "${{ secrets.PLANTLIVE_API_URL }}/internal/send-reminders" \
+            -H "X-Cron-Secret: ${{ secrets.PLANTLIVE_CRON_SECRET }}"

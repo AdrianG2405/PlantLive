@@ -21,6 +21,10 @@
     {
       "name": "MyHarness",
       "path": "app/MyHarness"
+    },
+    {
+      "name": "PlantCareAgent",
+      "path": "app/PlantCareAgent"
     }
   ],
   "datasets": [],
