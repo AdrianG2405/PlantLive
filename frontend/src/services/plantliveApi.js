@@ -1,4 +1,5 @@
 const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const PLANTAE_TAXON_ID = "47126";
 
 async function request(path, options) {
   const token = localStorage.getItem("plantlive-token");
@@ -56,8 +57,27 @@ const GROUP_ALIASES = {
   monstera: { name: "Monstera", rank: "genus" },
   poto: { name: "Epipremnum", rank: "genus" },
   potos: { name: "Epipremnum", rank: "genus" },
+  pothos: { name: "Epipremnum", rank: "genus" },
+  potho: { name: "Epipremnum", rank: "genus" },
+  photos: { name: "Epipremnum", rank: "genus" },
+  photo: { name: "Epipremnum", rank: "genus" },
   cactus: { name: "Cactaceae", rank: "family" },
   "cáctus": { name: "Cactaceae", rank: "family" },
+};
+
+const isPlantTaxon = (taxon) =>
+  taxon.iconic_taxon_name === "Plantae" ||
+  (taxon.ancestor_ids || []).map(String).includes(PLANTAE_TAXON_ID) ||
+  String(taxon.ancestry || "").split("/").includes(PLANTAE_TAXON_ID);
+
+const spanishPlantName = (taxon, genus) => {
+  if (genus?.name === "Epipremnum") {
+    if (taxon.name === "Epipremnum aureum") return "Poto dorado";
+    const variety = taxon.name.split(" ").slice(1).join(" ");
+    return `Poto ${variety || taxon.name}`;
+  }
+  return taxon.preferred_common_name ||
+    `Especie de ${genus?.preferred_common_name || genus?.name || taxon.name.split(" ")[0]}`;
 };
 
 async function findWikimediaPhoto(scientificName) {
@@ -75,12 +95,12 @@ async function findWikimediaPhoto(scientificName) {
 }
 
 export async function findPlantPhoto(scientificName) {
-  const params = new URLSearchParams({ q: scientificName, rank: "species", per_page: "10", locale: "es" });
+  const params = new URLSearchParams({ q: scientificName, rank: "species", taxon_id: PLANTAE_TAXON_ID, per_page: "10", locale: "es" });
   const response = await fetch(`https://api.inaturalist.org/v1/taxa?${params}`);
   if (!response.ok) return null;
   const data = await response.json();
   const expected = normalizeTaxon(scientificName);
-  const taxon = data.results?.find((item) =>
+  const taxon = data.results?.filter(isPlantTaxon).find((item) =>
     normalizeTaxon(item.name) === expected || normalizeTaxon(item.preferred_common_name) === expected
   );
   return taxon?.default_photo?.medium_url?.replace("medium.", "large.") || null;
@@ -91,15 +111,16 @@ export async function searchPlants(query) {
   const alias = GROUP_ALIASES[normalizedInput];
   const catalogQuery = alias?.name || query;
   const catalogRank = alias?.rank || "genus";
-  const genusParams = new URLSearchParams({ q: catalogQuery, rank: catalogRank, per_page: "5", locale: "es" });
+  const genusParams = new URLSearchParams({ q: catalogQuery, rank: catalogRank, taxon_id: PLANTAE_TAXON_ID, per_page: "5", locale: "es" });
   const genusResponse = await fetch(`https://api.inaturalist.org/v1/taxa?${genusParams}`);
   if (!genusResponse.ok) throw new Error("No se pudo consultar el catálogo botánico");
   const genusData = await genusResponse.json();
   const normalizedQuery = normalizeTaxon(catalogQuery).replace(/s$/, "");
-  const genus = genusData.results?.find((taxon) =>
+  const plantGroups = (genusData.results || []).filter(isPlantTaxon);
+  const genus = plantGroups.find((taxon) =>
     normalizeTaxon(taxon.name) === normalizedQuery ||
     normalizeTaxon(taxon.preferred_common_name).includes(normalizedQuery)
-  ) || genusData.results?.[0];
+  ) || plantGroups[0];
 
   let taxa = [];
   if (genus) {
@@ -109,18 +130,18 @@ export async function searchPlants(query) {
     });
     const response = await fetch(`https://api.inaturalist.org/v1/taxa?${speciesParams}`);
     if (!response.ok) throw new Error("No se pudieron cargar las especies");
-    taxa = (await response.json()).results || [];
+    taxa = ((await response.json()).results || []).filter(isPlantTaxon);
   } else {
-    const speciesParams = new URLSearchParams({ q: query, rank: "species", per_page: "30", locale: "es" });
+    const speciesParams = new URLSearchParams({ q: query, rank: "species", taxon_id: PLANTAE_TAXON_ID, per_page: "30", locale: "es" });
     const response = await fetch(`https://api.inaturalist.org/v1/taxa?${speciesParams}`);
-    taxa = response.ok ? (await response.json()).results || [] : [];
+    taxa = response.ok ? ((await response.json()).results || []).filter(isPlantTaxon) : [];
   }
 
   if (!taxa.length) throw new Error("No encontramos especies para esa búsqueda");
   return Promise.all(taxa.map(async (taxon) => ({
       id: `inat-${taxon.id}`,
       taxonId: taxon.id,
-      nombreComun: taxon.preferred_common_name || `Especie de ${genus?.preferred_common_name || genus?.name || taxon.name.split(" ")[0]}`,
+      nombreComun: spanishPlantName(taxon, genus),
       nombreCientifico: taxon.name,
       categoria: genus?.name || "planta",
       descripcion: `Especie aceptada de ${genus?.name || taxon.name.split(" ")[0]}.`,
