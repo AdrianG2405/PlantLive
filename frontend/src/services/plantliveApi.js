@@ -250,13 +250,30 @@ export async function searchPlants(query) {
     })));
 }
 
-export async function createCareProfile(plant) {
+export function seasonalCareDays(plant, type = "riego", date = new Date()) {
+  const month = date.getMonth();
+  const season = month >= 2 && month <= 4 ? "Primavera"
+    : month >= 5 && month <= 7 ? "Verano"
+      : month >= 8 && month <= 10 ? "Otono" : "Invierno";
+  return Number(plant[`${type}${season}Dias`] || plant[`${type}Dias`] || (type === "riego" ? 7 : 30));
+}
+
+export async function createCareProfile(plant, contexto = {}) {
   try {
     const care = await request("/plantas/ficha-ia", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombreCientifico: plant.nombreCientifico, nombreComun: plant.nombreComun }),
+      body: JSON.stringify({
+        nombreCientifico: plant.nombreCientifico,
+        nombreComun: plant.nombreComun,
+        contexto,
+      }),
     });
-    return { ...plant, ...care, id: plant.id, imagen: plant.imagen };
+    const complete = { ...plant, ...care, id: plant.id, imagen: plant.imagen, careProfilePending: false };
+    return {
+      ...complete,
+      riegoDias: seasonalCareDays(complete, "riego"),
+      abonoDias: seasonalCareDays(complete, "abono"),
+    };
   } catch {
     return {
       ...plant,
@@ -266,7 +283,16 @@ export async function createCareProfile(plant) {
       ubicacion: "Lugar luminoso, ventilado y protegido de temperaturas extremas",
       sustrato: "Sustrato aireado y drenante",
       riegoDias: 10,
+      riegoPrimaveraDias: 8,
+      riegoVeranoDias: 6,
+      riegoOtonoDias: 10,
+      riegoInviernoDias: 14,
+      riegoIndicador: "Comprueba la humedad del sustrato antes de regar",
       abonoDias: 30,
+      abonoPrimaveraDias: 30,
+      abonoVeranoDias: 30,
+      abonoOtonoDias: 45,
+      abonoInviernoDias: 60,
       fertilizante: "Fertilizante equilibrado a media dosis",
       humedad: "Moderada",
       temperatura: "18–26 °C",

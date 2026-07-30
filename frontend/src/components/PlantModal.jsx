@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Camera, Check, Droplets, FlaskConical, History, Scissors, Sprout, X } from "lucide-react";
-import { userDataApi } from "../services/plantliveApi";
+import { Camera, Check, Droplets, FlaskConical, History, RefreshCw, Scissors, Sprout, X } from "lucide-react";
+import { seasonalCareDays, userDataApi } from "../services/plantliveApi";
 
 const careTypes = [
   ["water", "Riego", Droplets], ["fertilize", "Abono", FlaskConical],
@@ -9,10 +9,11 @@ const careTypes = [
 ];
 const labels = Object.fromEntries(careTypes.map(([value, label]) => [value, label]));
 
-export function PlantModal({ plant, onClose, onUpdate, onRemove }) {
+export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }) {
   const [draft, setDraft] = useState(plant);
   const [history, setHistory] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [refreshingCare, setRefreshingCare] = useState(false);
   useEffect(() => {
     setDraft(plant);
     if (plant?.serverId) userDataApi.careHistory(plant.serverId).then(setHistory).catch(() => {});
@@ -53,6 +54,21 @@ export function PlantModal({ plant, onClose, onUpdate, onRemove }) {
     change({ gallery: (draft.gallery || []).filter((_, itemIndex) => itemIndex !== index) });
     if (url && !url.startsWith("data:")) await userDataApi.removePhoto(url).catch(() => {});
   };
+  const refreshCare = async () => {
+    setRefreshingCare(true);
+    try {
+      const refreshed = await onRefreshCare(draft.instanceId, {
+        homeLocation: draft.homeLocation,
+        potSize: draft.potSize,
+        currentSubstrate: draft.currentSubstrate,
+        exposure: draft.exposure,
+        lastRepot: draft.lastRepot,
+      });
+      setDraft(refreshed);
+    } finally {
+      setRefreshingCare(false);
+    }
+  };
   return <div className="modal-backdrop" onClick={onClose}><section className="modal plant-profile" onClick={(event) => event.stopPropagation()}>
     <button className="close" onClick={onClose} aria-label="Cerrar">×</button><span className="kicker">FICHA DE CUIDADOS</span>
     <input className="nickname" value={draft.nickname} onChange={(event) => change({ nickname: event.target.value })} /><i>{draft.nombreCientifico}</i>
@@ -63,10 +79,13 @@ export function PlantModal({ plant, onClose, onUpdate, onRemove }) {
     <div className="profile-fields">
       <label>Ubicación en casa<input value={draft.homeLocation || ""} onChange={(event) => change({ homeLocation: event.target.value })} placeholder="Salón, ventana este…" /></label>
       <label>Tamaño de maceta<input value={draft.potSize || ""} onChange={(event) => change({ potSize: event.target.value })} placeholder="18 cm" /></label>
+      <label>Sustrato actual<input value={draft.currentSubstrate || ""} onChange={(event) => change({ currentSubstrate: event.target.value })} placeholder="Universal, perlita, fibra de coco…" /></label>
+      <label>Luz real que recibe<input value={draft.exposure || ""} onChange={(event) => change({ exposure: event.target.value })} placeholder="Ventana sur, sombra, 3 h de sol…" /></label>
       <label>Fecha de adquisición<input type="date" value={draft.acquiredAt || ""} onChange={(event) => change({ acquiredAt: event.target.value })} /></label>
       <label>Último trasplante<input type="date" value={draft.lastRepot || ""} onChange={(event) => change({ lastRepot: event.target.value })} /></label>
     </div>
-    <div className="care-grid"><div><b>☀️ Luz</b><p>{draft.luz}</p></div><div><b>📍 Ubicación ideal</b><p>{draft.ubicacion}</p></div><div><b>🪴 Sustrato</b><p>{draft.sustrato}</p></div><div><b>💧 Riego</b><p>Cada {draft.riegoDias} días; comprueba antes la humedad.</p></div><div><b>🧪 Fertilizante</b><p>{draft.fertilizante}, cada {draft.abonoDias} días.</p></div><div><b>🌡️ Ambiente</b><p>{draft.temperatura} · Humedad {draft.humedad}</p></div></div>
+    <button className="followup-button" onClick={refreshCare} disabled={refreshingCare}><RefreshCw size={16} /> {refreshingCare ? "Analizando condiciones…" : "Actualizar cuidados según mi casa"}</button>
+    <div className="care-grid"><div><b>☀️ Luz</b><p>{draft.luz}</p></div><div><b>📍 Ubicación ideal</b><p>{draft.ubicacion}</p></div><div><b>🪴 Sustrato recomendado</b><p>{draft.sustrato}</p></div><div><b>💧 Riego actual</b><p>Revisar aproximadamente cada {seasonalCareDays(draft, "riego")} días. {draft.riegoIndicador || "Comprueba antes la humedad."}</p><small>Verano: {draft.riegoVeranoDias || draft.riegoDias} días · Invierno: {draft.riegoInviernoDias || draft.riegoDias} días</small></div><div><b>🧪 Fertilizante</b><p>{draft.fertilizante}, revisar cada {seasonalCareDays(draft, "abono")} días en la estación actual.</p></div><div><b>🌡️ Ambiente</b><p>{draft.temperatura} · Humedad {draft.humedad}</p></div></div>
     <div className="warning">🐾 {draft.toxicidad}</div>
     <section className="care-history"><h3><History size={18} /> Registrar cuidado</h3><div className="care-buttons">{careTypes.map(([type, label, Icon]) => <button key={type} onClick={() => addCare(type)}><Icon size={16} /> {label}</button>)}</div>
       {!!history.length && <div className="care-timeline">{history.slice(0, 8).map((item) => <p key={item.id}><b>{labels[item.type] || item.type}</b><span>{new Date(item.completedAt).toLocaleDateString("es-ES")}</span></p>)}</div>}

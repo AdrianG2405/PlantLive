@@ -11,6 +11,9 @@ GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 def advanced_ai_configured() -> bool:
     return bool(os.getenv("PLANT_ID_API_KEY") and os.getenv("GEMINI_API_KEY"))
 
+def gemini_configured() -> bool:
+    return bool(os.getenv("GEMINI_API_KEY"))
+
 
 def _post_json(url: str, payload: dict, headers: dict, timeout: int = 75) -> dict:
     request = urllib.request.Request(
@@ -103,6 +106,50 @@ En QUÉ VIGILAR explica qué cambios justificarían actuar o pedir otra fotograf
     if not text:
         raise RuntimeError("Gemini no devolvió un diagnóstico")
     return text.replace("**", "").strip()
+
+def crear_ficha_avanzada(nombre_cientifico: str, nombre_comun: str | None = None, contexto: dict | None = None) -> dict:
+    model = os.getenv("GEMINI_MODEL", "").strip() or "gemini-3.6-flash"
+    prompt = f"""Prepara una ficha hortícola prudente y específica para:
+Nombre científico: {nombre_cientifico}
+Nombre común: {nombre_comun or "no indicado"}
+Condiciones del ejemplar: {json.dumps(contexto or {}, ensure_ascii=False)}
+
+Devuelve exclusivamente un objeto JSON válido, sin markdown. Usa estas claves:
+nombreComun, nombreCientifico, categoria, descripcion, luz, ubicacion, sustrato,
+riegoPrimaveraDias, riegoVeranoDias, riegoOtonoDias, riegoInviernoDias,
+riegoIndicador, abonoPrimaveraDias, abonoVeranoDias, abonoOtonoDias,
+abonoInviernoDias, fertilizante, humedad, temperatura, toxicidad.
+
+Los intervalos deben ser enteros realistas para esa especie en maceta y representan
+cuándo revisar el sustrato, no un riego automático. Distingue estaciones del
+hemisferio norte. Ajusta la recomendación usando ubicación, maceta, sustrato y
+último trasplante si se han indicado. Para especies que necesitan revisión diaria
+puedes usar 1. No inventes precisión: riegoIndicador debe explicar qué humedad,
+peso de maceta o señal comprobar antes de regar."""
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "maxOutputTokens": 1800,
+            "responseMimeType": "application/json",
+            "thinkingConfig": {"thinkingLevel": "minimal"},
+        },
+    }
+    query = urllib.parse.urlencode({"key": os.environ["GEMINI_API_KEY"]})
+    response = _post_json(f"{GEMINI_URL}/{model}:generateContent?{query}", payload, {}, 60)
+    candidates = response.get("candidates", [])
+    parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
+    text = "".join(part.get("text", "") for part in parts).strip()
+    try:
+        result = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise RuntimeError("Gemini no devolvió una ficha de cuidados válida") from error
+    required = {
+        "nombreComun", "nombreCientifico", "sustrato", "riegoVeranoDias",
+        "riegoInviernoDias", "riegoIndicador", "fertilizante",
+    }
+    if not isinstance(result, dict) or not required.issubset(result):
+        raise RuntimeError("La ficha de cuidados está incompleta")
+    return result
 
 
 def diagnosticar_avanzado(images_base64: list[str], planta: str | None, sintomas: str | None) -> str:

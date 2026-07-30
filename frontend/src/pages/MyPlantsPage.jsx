@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { PlantModal } from "../components/PlantModal";
 
 export function MyPlantsPage({
-  plants, upcoming, updatePlant, removePlant, markDone,
+  plants, upcoming, updatePlant, refreshPlantCare, removePlant, markDone,
   notifications, notify, loadingPlants, authenticated,
 }) {
   const [selected, setSelected] = useState(null);
@@ -68,6 +68,6 @@ export function MyPlantsPage({
       <div className="modern-agenda">{upcoming.length ? upcoming.slice(0, 6).map((item) => <article key={item.id}><time><b>{new Date(`${item.date}T12:00`).toLocaleDateString("es-ES", { day: "2-digit" })}</b><small>{new Date(`${item.date}T12:00`).toLocaleDateString("es-ES", { month: "short" })}</small></time><span className="agenda-care-icon">{item.icon}</span><div><b>{item.action}</b><small>{item.plant}</small></div><button onClick={() => markDone(item)} title="Marcar como realizado"><Check size={17} /></button></article>) : <div className="agenda-empty"><CalendarDays size={30} /><p>Añade una planta para crear automáticamente sus próximos cuidados.</p></div>}</div>
     </section>
 
-    {selected && <PlantModal plant={plants.find((plant) => plant.instanceId === selected.instanceId) || selected} onClose={() => setSelected(null)} onUpdate={updatePlant} onRemove={removePlant} />}
+    {selected && <PlantModal plant={plants.find((plant) => plant.instanceId === selected.instanceId) || selected} onClose={() => setSelected(null)} onUpdate={updatePlant} onRefreshCare={refreshPlantCare} onRemove={removePlant} />}
   </div>;
 }

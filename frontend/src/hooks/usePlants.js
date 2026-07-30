@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { userDataApi } from "../services/plantliveApi";
+import { createCareProfile, seasonalCareDays, userDataApi } from "../services/plantliveApi";
 
 const datePlus = (days) => {
   const date = new Date();
@@ -23,7 +23,9 @@ export function usePlants(user, notify) {
       ...plant,
       instanceId: globalThis.crypto?.randomUUID?.() || `plant-${Date.now()}`,
       nickname: plant.nombreComun,
-      nextWater: datePlus(plant.riegoDias), nextFeed: datePlus(plant.abonoDias), notes: "",
+      nextWater: datePlus(seasonalCareDays(plant, "riego")),
+      nextFeed: datePlus(seasonalCareDays(plant, "abono")),
+      notes: "",
     };
     const saved = await userDataApi.addPlant(item);
     setPlants((current) => [saved, ...current]);
@@ -41,6 +43,28 @@ export function usePlants(user, notify) {
     setPlants((current) => current.filter((item) => item.instanceId !== id));
     userDataApi.removePlant(plant.serverId).catch((error) => notify(error.message));
   };
+  const refreshPlantCare = async (id, conditions = {}) => {
+    const plant = plants.find((item) => item.instanceId === id);
+    if (!plant) throw new Error("Planta no encontrada");
+    const refreshed = await createCareProfile(plant, {
+      ubicacionEnCasa: conditions.homeLocation ?? plant.homeLocation,
+      tamanoMaceta: conditions.potSize ?? plant.potSize,
+      sustratoActual: conditions.currentSubstrate ?? plant.currentSubstrate,
+      exposicion: conditions.exposure ?? plant.exposure,
+      ultimoTrasplante: conditions.lastRepot ?? plant.lastRepot,
+    });
+    const values = {
+      ...refreshed,
+      ...conditions,
+      instanceId: plant.instanceId,
+      nickname: plant.nickname,
+      nextWater: datePlus(seasonalCareDays(refreshed, "riego")),
+      nextFeed: datePlus(seasonalCareDays(refreshed, "abono")),
+    };
+    const saved = await userDataApi.updatePlant(plant.serverId, values);
+    setPlants((current) => current.map((item) => item.instanceId === id ? saved : item));
+    return saved;
+  };
   const upcoming = useMemo(() => plants.flatMap((plant) => [
     { id: `${plant.instanceId}-water`, date: plant.nextWater, icon: "💧", action: "Revisar riego", plant: plant.nickname || plant.nombreComun },
     { id: `${plant.instanceId}-feed`, date: plant.nextFeed, icon: "🧪", action: "Abonar", plant: plant.nickname || plant.nombreComun },
@@ -49,10 +73,11 @@ export function usePlants(user, notify) {
     const plant = plants.find((item) => event.id.startsWith(item.instanceId));
     if (!plant) return;
     updatePlant(plant.instanceId, event.action.includes("riego")
-      ? { nextWater: datePlus(plant.riegoDias) } : { nextFeed: datePlus(plant.abonoDias) });
+      ? { nextWater: datePlus(seasonalCareDays(plant, "riego")) }
+      : { nextFeed: datePlus(seasonalCareDays(plant, "abono")) });
     userDataApi.addCare(plant.serverId, {
       type: event.action.includes("riego") ? "water" : "fertilize",
     }).catch((error) => notify(error.message));
   };
-  return { plants, upcoming, loadingPlants, addPlant, updatePlant, removePlant, markDone };
+  return { plants, upcoming, loadingPlants, addPlant, updatePlant, refreshPlantCare, removePlant, markDone };
 }

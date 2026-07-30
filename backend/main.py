@@ -18,7 +18,7 @@ logger = logging.getLogger("plantlive")
 from ai_service import buscar_plantas_con_ia, crear_ficha_planta, diagnosticar_imagen, preguntar_a_plantlive
 from auth import create_session, get_current_user, hash_password, verify_password
 from database import Base, engine, get_db
-from hybrid_ai_service import advanced_ai_configured, diagnosticar_avanzado
+from hybrid_ai_service import advanced_ai_configured, crear_ficha_avanzada, diagnosticar_avanzado, gemini_configured
 from models import ApiUsage, AuthSession, CareEvent, CustomTask, DiagnosisHistory, PasswordResetToken, Planta, PushSubscription, User, UserPlant, UserSettings
 from storage_service import UPLOAD_DIR, delete_plant_photo, save_plant_photo
 from email_service import send_password_reset
@@ -252,8 +252,16 @@ def ficha_planta_ia(datos: dict):
     if not nombre_cientifico:
         raise HTTPException(400, "Falta el nombre científico")
     try:
+        if gemini_configured():
+            return crear_ficha_avanzada(
+                nombre_cientifico,
+                datos.get("nombreComun"),
+                datos.get("contexto"),
+            )
+        if os.getenv("ENABLE_LOCAL_AI", "").lower() not in {"1", "true", "yes"}:
+            raise RuntimeError("La generación de cuidados no está configurada")
         return crear_ficha_planta(nombre_cientifico, datos.get("nombreComun"))
-    except ValueError as error:
+    except (ValueError, RuntimeError) as error:
         raise HTTPException(502, str(error)) from error
 
 
