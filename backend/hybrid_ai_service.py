@@ -77,7 +77,7 @@ Máximo 3 acciones. Si falta evidencia, pide una sola foto o dato concreto."""
             *[{"inlineData": {"mimeType": "image/jpeg", "data": image}} for image in images_base64],
             {"text": prompt},
         ]}],
-        "generationConfig": {"temperature": 0.1, "maxOutputTokens": 500},
+        "generationConfig": {"maxOutputTokens": 500},
     }
     query = urllib.parse.urlencode({"key": os.environ["GEMINI_API_KEY"]})
     response = _post_json(f"{GEMINI_URL}/{model}:generateContent?{query}", payload, {}, 90)
