@@ -1,4 +1,4 @@
-const CACHE = "plantlive-v1";
+const CACHE = "plantlive-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/favicon.svg"];
 
 self.addEventListener("install", (event) => {
