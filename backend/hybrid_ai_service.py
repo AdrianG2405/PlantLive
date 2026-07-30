@@ -60,7 +60,7 @@ def _compact_plant_id(raw: dict) -> dict:
 
 
 def _gemini_diagnosis(images_base64: list[str], context: dict, planta: str | None, sintomas: str | None) -> str:
-    model = os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+    model = os.getenv("GEMINI_MODEL", "").strip() or "gemini-2.5-flash"
     prompt = f"""Eres PlantLive, especialista prudente en botánica.
 Analiza la foto junto con el clasificador especializado Plant.id.
 Planta indicada: {planta or "ninguna"}
@@ -90,5 +90,11 @@ Máximo 3 acciones. Si falta evidencia, pide una sola foto o dato concreto."""
 
 
 def diagnosticar_avanzado(images_base64: list[str], planta: str | None, sintomas: str | None) -> str:
-    context = _compact_plant_id(_plant_id_analysis(images_base64))
+    try:
+        context = _compact_plant_id(_plant_id_analysis(images_base64))
+    except Exception:
+        context = {
+            "plant_id_unavailable": True,
+            "note": "Identifica y diagnostica directamente a partir de las fotografías.",
+        }
     return _gemini_diagnosis(images_base64, context, planta, sintomas)

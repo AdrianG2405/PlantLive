@@ -283,8 +283,15 @@ def diagnosticar(
                 provider = "Plant.id + Gemini"
             except Exception as advanced_error:
                 logger.warning("Análisis avanzado no disponible: %s", advanced_error)
-                respuesta = diagnosticar_imagen(imagenes, datos.get("planta"), datos.get("sintomas"))
-                provider = "Gemma 3 local (respaldo)"
+                raise RuntimeError(
+                    "El servicio de análisis externo no está disponible. "
+                    "Comprueba GEMINI_API_KEY y GEMINI_MODEL en Render."
+                ) from advanced_error
+        elif os.getenv("ENVIRONMENT", "development").lower() == "production":
+            raise RuntimeError(
+                "El análisis con IA no está configurado en Render. "
+                "Añade PLANT_ID_API_KEY y GEMINI_API_KEY."
+            )
         else:
             respuesta = diagnosticar_imagen(imagenes, datos.get("planta"), datos.get("sintomas"))
         db.add(DiagnosisHistory(
