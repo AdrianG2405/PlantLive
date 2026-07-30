@@ -40,7 +40,11 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "service": "plantlive-api"}
+    return {
+        "status": "ok",
+        "service": "plantlive-api",
+        "version": os.getenv("RENDER_GIT_COMMIT", "local")[:7],
+    }
 
 
 @app.post("/internal/send-reminders")
@@ -287,13 +291,13 @@ def diagnosticar(
                     "El servicio de análisis externo no está disponible. "
                     "Comprueba GEMINI_API_KEY y GEMINI_MODEL en Render."
                 ) from advanced_error
-        elif os.getenv("ENVIRONMENT", "development").lower() == "production":
-            raise RuntimeError(
-                "El análisis con IA no está configurado en Render. "
-                "Añade PLANT_ID_API_KEY y GEMINI_API_KEY."
-            )
-        else:
+        elif os.getenv("ENABLE_LOCAL_AI", "").lower() in {"1", "true", "yes"}:
             respuesta = diagnosticar_imagen(imagenes, datos.get("planta"), datos.get("sintomas"))
+        else:
+            raise RuntimeError(
+                "El análisis con IA no está configurado. "
+                "Añade PLANT_ID_API_KEY y GEMINI_API_KEY en Render."
+            )
         db.add(DiagnosisHistory(
             user_id=user.id,
             plant_name=datos.get("planta"),
