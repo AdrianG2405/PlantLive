@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, CalendarPlus, Camera, CheckCircle2, Eye, Leaf, ScanSearch, Sparkles } from "lucide-react";
+import { AlertTriangle, CalendarPlus, Camera, CheckCircle2, Eye, ImagePlus, Leaf, ScanSearch, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { diagnosePlant, userDataApi } from "../services/plantliveApi";
 
@@ -45,6 +45,7 @@ export function DiagnosisPage({ plants, notify, authenticated }) {
       setPhotos((current) => [...current, optimized].slice(0, 4));
     }
     catch (error) { notify(error.message); }
+    finally { event.target.value = ""; }
   };
   const diagnose = async () => {
     if (!authenticated) {
@@ -84,9 +85,12 @@ export function DiagnosisPage({ plants, notify, authenticated }) {
     } catch (error) { notify(error.message); }
   };
   const sections = diagnosis ? parseDiagnosis(diagnosis) : [];
-  return <><section className="page-banner dark"><span className="kicker light">IDENTIFICACIÓN Y SALUD VEGETAL</span><h1>Identifica y diagnostica</h1><p>Descubre qué planta es, qué puede estar ocurriendo y cómo actuar.</p></section>
-    <section className="section doctor"><div className="doctor-copy"><span className="kicker light">ANÁLISIS VISUAL</span><h2>¿Qué planta es y cómo está?</h2><p>Sube una foto nítida. La IA intentará identificar la especie antes de analizar su estado.</p><ul><li>Fotografía la planta completa</li><li>Incluye hojas sanas y afectadas</li><li>Si puedes, muestra también tallos y sustrato</li></ul></div><div className="diagnosis-panel">
-      <label className="dropzone"><span className="upload-icon"><Camera size={28} /></span><b>Añade entre 1 y 4 fotografías</b><small>Planta completa, hoja afectada, envés y sustrato</small><input type="file" accept="image/jpeg,image/png,image/webp" onChange={loadPhoto} /></label>
+  return <><section className="page-banner dark diagnosis-banner"><span className="kicker light">IDENTIFICACIÓN Y SALUD VEGETAL</span><h1>Identificación y diagnóstico</h1><p>Descubre qué planta es, qué puede estar ocurriendo y cómo actuar.</p></section>
+    <section className="section doctor diagnosis-doctor"><div className="doctor-copy"><span className="kicker light">ANÁLISIS VISUAL</span><h2>¿Qué planta es y cómo está?</h2><p>Sube una foto nítida. La IA intentará identificar la especie antes de analizar su estado.</p><ul><li>Fotografía la planta completa</li><li>Incluye hojas sanas y afectadas</li><li>Si puedes, muestra también tallos y sustrato</li></ul></div><div className="diagnosis-panel">
+      <div className="diagnosis-photo-source">
+        <label className="dropzone"><span className="upload-icon"><ImagePlus size={28} /></span><b>Elegir de la galería</b><small>Añade entre 1 y 4 fotografías</small><input type="file" accept="image/jpeg,image/png,image/webp" onChange={loadPhoto} /></label>
+        <label className="camera-capture"><Camera size={20} /><span><b>Hacer foto ahora</b><small>Abre directamente la cámara trasera</small></span><input type="file" accept="image/*" capture="environment" onChange={loadPhoto} /></label>
+      </div>
       {!!photos.length && <div className="diagnosis-photos">{photos.map((item, index) => <button key={index} onClick={() => setPhotos(photos.filter((_, photoIndex) => photoIndex !== index))}><img src={item} alt={`Vista ${index + 1}`} /><span>×</span></button>)}</div>}
       <select value={plantId} onChange={(event) => setPlantId(event.target.value)}><option value="">No sé qué planta es — identificar con la foto</option>{plants.map((plant) => <option key={plant.instanceId} value={plant.instanceId}>{plant.nickname}</option>)}</select>
       <textarea value={symptoms} onChange={(event) => setSymptoms(event.target.value)} placeholder="¿Qué has observado? ¿Desde cuándo? ¿Cada cuánto riegas?" />

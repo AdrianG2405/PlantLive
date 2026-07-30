@@ -23,7 +23,7 @@ export function HomePage({ addPlant, notify, authenticated }) {
     if (query.trim().length < 2) return;
     setLoading(true); setResults([]);
     try { setResults(await searchPlants(query)); }
-    catch (error) { notify(error.message || "Comprueba que el backend y Ollama estén activos."); }
+    catch (error) { notify(error.message || "No se pudo completar la búsqueda. Inténtalo de nuevo."); }
     finally { setLoading(false); }
   };
   const add = async (plant) => {
