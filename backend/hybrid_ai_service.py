@@ -155,6 +155,48 @@ humedad, peso de maceta o señal comprobar antes de regar."""
         raise RuntimeError("La ficha de cuidados está incompleta")
     return result
 
+def preguntar_avanzado(
+    pregunta: str,
+    planta: str | None = None,
+    contexto: str | None = None,
+    historial: list[dict] | None = None,
+) -> str:
+    model = os.getenv("GEMINI_MODEL", "").strip() or "gemini-3.6-flash"
+    previous = [
+        {
+            "role": "model" if item.get("role") == "assistant" else "user",
+            "parts": [{"text": str(item.get("content", ""))[:1200]}],
+        }
+        for item in (historial or [])[-6:]
+        if item.get("content")
+    ]
+    prompt = f"""Eres el asistente botánico de PlantLive.
+Planta seleccionada: {planta or "ninguna"}
+Contexto aportado: {contexto or "ninguno"}
+Pregunta: {pregunta}
+
+Responde en español, sin Markdown ni asteriscos, con un máximo de 180 palabras.
+Da primero una respuesta directa y después pasos concretos. Adapta la recomendación
+a la especie y distingue entre cultivo en agua, tierra y semihidroponía cuando sea
+relevante. Si faltan datos decisivos, pide solo uno o dos. No inventes certezas ni
+diagnostiques enfermedades sin evidencia. Advierte sobre toxicidad o riesgos cuando
+proceda."""
+    payload = {
+        "contents": [*previous, {"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "maxOutputTokens": 900,
+            "thinkingConfig": {"thinkingLevel": "minimal"},
+        },
+    }
+    query = urllib.parse.urlencode({"key": os.environ["GEMINI_API_KEY"]})
+    response = _post_json(f"{GEMINI_URL}/{model}:generateContent?{query}", payload, {}, 60)
+    candidates = response.get("candidates", [])
+    parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
+    text = "".join(part.get("text", "") for part in parts).strip()
+    if not text:
+        raise RuntimeError("Gemini no devolvió una respuesta")
+    return text.replace("**", "").strip()
+
 
 def diagnosticar_avanzado(images_base64: list[str], planta: str | None, sintomas: str | None) -> str:
     try:

@@ -311,3 +311,10 @@ export function diagnosePlant({ imagenes, sintomas, planta }) {
     body: JSON.stringify({ imagenes, sintomas, planta }),
   });
 }
+
+export function askPlantLive({ pregunta, planta, contexto, historial }) {
+  return request("/preguntar", {
+    method: "POST",
+    body: JSON.stringify({ pregunta, planta, contexto, historial }),
+  });
+}

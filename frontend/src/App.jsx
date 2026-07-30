@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import "./App.css";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
+import { PlantChatbot } from "./components/PlantChatbot";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import { useAuth } from "./contexts/authStore";
@@ -46,6 +47,7 @@ function App() {
       <Route path="/restablecer" element={<ResetPasswordPage notify={notify} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes></main>
+    <PlantChatbot plants={garden.plants} authenticated={Boolean(user)} notify={notify} />
     <Footer />
   </div>;
 }

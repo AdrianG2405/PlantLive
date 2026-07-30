@@ -18,7 +18,7 @@ logger = logging.getLogger("plantlive")
 from ai_service import buscar_plantas_con_ia, crear_ficha_planta, diagnosticar_imagen, preguntar_a_plantlive
 from auth import create_session, get_current_user, hash_password, verify_password
 from database import Base, engine, get_db
-from hybrid_ai_service import advanced_ai_configured, crear_ficha_avanzada, diagnosticar_avanzado, gemini_configured
+from hybrid_ai_service import advanced_ai_configured, crear_ficha_avanzada, diagnosticar_avanzado, gemini_configured, preguntar_avanzado
 from models import ApiUsage, AuthSession, CareEvent, CustomTask, DiagnosisHistory, PasswordResetToken, Planta, PushSubscription, User, UserPlant, UserSettings
 from storage_service import UPLOAD_DIR, delete_plant_photo, save_plant_photo
 from email_service import send_password_reset
@@ -228,11 +228,44 @@ def inicio():
 
 
 @app.post("/preguntar")
-def preguntar(datos: dict):
+def preguntar(
+    datos: dict,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
     pregunta = datos.get("pregunta", "").strip()
     if not pregunta:
         raise HTTPException(400, "Escribe una pregunta")
-    return {"respuesta": preguntar_a_plantlive(pregunta, datos.get("planta"), datos.get("contexto"))}
+    if len(pregunta) > 800:
+        raise HTTPException(400, "La pregunta es demasiado larga")
+    today = datetime.utcnow().date()
+    daily_limit = int(os.getenv("DAILY_CHAT_LIMIT", "40"))
+    used = db.query(ApiUsage).filter(
+        ApiUsage.user_id == user.id,
+        ApiUsage.operation == "chat",
+        ApiUsage.created_at >= datetime.combine(today, datetime.min.time()),
+    ).count()
+    if used >= daily_limit:
+        raise HTTPException(429, "Has alcanzado el límite diario de preguntas")
+    try:
+        if gemini_configured():
+            respuesta = preguntar_avanzado(
+                pregunta,
+                datos.get("planta"),
+                datos.get("contexto"),
+                datos.get("historial"),
+            )
+            provider = "Gemini"
+        elif os.getenv("ENABLE_LOCAL_AI", "").lower() in {"1", "true", "yes"}:
+            respuesta = preguntar_a_plantlive(pregunta, datos.get("planta"), datos.get("contexto"))
+            provider = "Ollama local"
+        else:
+            raise RuntimeError("El asistente botánico no está configurado")
+        db.add(ApiUsage(user_id=user.id, operation="chat", provider=provider))
+        db.commit()
+        return {"respuesta": respuesta, "provider": provider}
+    except Exception as error:
+        raise HTTPException(502, f"No se pudo responder: {error}") from error
 
 
 @app.post("/plantas/buscar-ia")
