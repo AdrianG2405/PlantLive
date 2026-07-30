@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { createCareProfile, seasonalCareDays, userDataApi } from "../services/plantliveApi";
 
 const datePlus = (days) => {
+  const interval = Number(days);
+  if (!Number.isFinite(interval) || interval <= 0) return null;
   const date = new Date();
-  date.setDate(date.getDate() + Number(days || 7));
+  date.setDate(date.getDate() + interval);
   return date.toISOString().slice(0, 10);
 };
 
@@ -67,7 +69,9 @@ export function usePlants(user, notify) {
   };
   const upcoming = useMemo(() => plants.flatMap((plant) => [
     { id: `${plant.instanceId}-water`, date: plant.nextWater, icon: "💧", action: "Revisar riego", plant: plant.nickname || plant.nombreComun },
-    { id: `${plant.instanceId}-feed`, date: plant.nextFeed, icon: "🧪", action: "Abonar", plant: plant.nickname || plant.nombreComun },
+    ...(seasonalCareDays(plant, "abono") > 0 ? [
+      { id: `${plant.instanceId}-feed`, date: plant.nextFeed, icon: "🧪", action: "Abonar / fertilizar", plant: plant.nickname || plant.nombreComun },
+    ] : []),
   ]).filter((item) => item.date).sort((a, b) => a.date.localeCompare(b.date)), [plants]);
   const markDone = (event) => {
     const plant = plants.find((item) => event.id.startsWith(item.instanceId));

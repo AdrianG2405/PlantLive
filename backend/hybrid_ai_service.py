@@ -118,14 +118,16 @@ Devuelve exclusivamente un objeto JSON válido, sin markdown. Usa estas claves:
 nombreComun, nombreCientifico, categoria, descripcion, luz, ubicacion, sustrato,
 riegoPrimaveraDias, riegoVeranoDias, riegoOtonoDias, riegoInviernoDias,
 riegoIndicador, abonoPrimaveraDias, abonoVeranoDias, abonoOtonoDias,
-abonoInviernoDias, fertilizante, humedad, temperatura, toxicidad.
+abonoInviernoDias, abonoIndicador, fertilizante, humedad, temperatura, toxicidad.
 
 Los intervalos deben ser enteros realistas para esa especie en maceta y representan
 cuándo revisar el sustrato, no un riego automático. Distingue estaciones del
 hemisferio norte. Ajusta la recomendación usando ubicación, maceta, sustrato y
 último trasplante si se han indicado. Para especies que necesitan revisión diaria
-puedes usar 1. No inventes precisión: riegoIndicador debe explicar qué humedad,
-peso de maceta o señal comprobar antes de regar."""
+puedes usar 1. En los campos de abono usa 0 cuando no se deba abonar durante esa
+estación. abonoIndicador debe explicar la dosis, si se aplica con el sustrato húmedo
+y cuándo suspenderlo. No inventes precisión: riegoIndicador debe explicar qué
+humedad, peso de maceta o señal comprobar antes de regar."""
     payload = {
         "contents": [{"role": "user", "parts": [{"text": prompt}]}],
         "generationConfig": {
@@ -146,6 +148,8 @@ peso de maceta o señal comprobar antes de regar."""
     required = {
         "nombreComun", "nombreCientifico", "sustrato", "riegoVeranoDias",
         "riegoInviernoDias", "riegoIndicador", "fertilizante",
+        "abonoPrimaveraDias", "abonoVeranoDias", "abonoOtonoDias",
+        "abonoInviernoDias", "abonoIndicador",
     }
     if not isinstance(result, dict) or not required.issubset(result):
         raise RuntimeError("La ficha de cuidados está incompleta")

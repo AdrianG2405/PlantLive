@@ -255,7 +255,9 @@ export function seasonalCareDays(plant, type = "riego", date = new Date()) {
   const season = month >= 2 && month <= 4 ? "Primavera"
     : month >= 5 && month <= 7 ? "Verano"
       : month >= 8 && month <= 10 ? "Otono" : "Invierno";
-  return Number(plant[`${type}${season}Dias`] || plant[`${type}Dias`] || (type === "riego" ? 7 : 30));
+  const seasonalValue = plant[`${type}${season}Dias`];
+  const fallbackValue = plant[`${type}Dias`];
+  return Number(seasonalValue ?? fallbackValue ?? (type === "riego" ? 7 : 30));
 }
 
 export async function createCareProfile(plant, contexto = {}) {
@@ -293,6 +295,7 @@ export async function createCareProfile(plant, contexto = {}) {
       abonoVeranoDias: 30,
       abonoOtonoDias: 45,
       abonoInviernoDias: 60,
+      abonoIndicador: "Aplicar a media dosis y con el sustrato previamente húmedo",
       fertilizante: "Fertilizante equilibrado a media dosis",
       humedad: "Moderada",
       temperatura: "18–26 °C",
