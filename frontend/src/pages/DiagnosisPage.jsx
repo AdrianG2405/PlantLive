@@ -12,9 +12,13 @@ export function DiagnosisPage({ plants, notify, authenticated }) {
   const [provider, setProvider] = useState("");
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [aiConsent, setAiConsent] = useState(false);
   const loadHistory = () => userDataApi.diagnoses().then(setHistory).catch(() => {});
   useEffect(() => {
-    if (authenticated) userDataApi.diagnoses().then(setHistory).catch(() => {});
+    if (authenticated) {
+      userDataApi.diagnoses().then(setHistory).catch(() => {});
+      userDataApi.settings().then((settings) => setAiConsent(settings.aiConsent)).catch(() => {});
+    }
   }, [authenticated]);
   const optimizePhoto = (file) => new Promise((resolve, reject) => {
     const image = new Image();
@@ -48,6 +52,7 @@ export function DiagnosisPage({ plants, notify, authenticated }) {
       navigate("/acceso", { state: { from: "/diagnostico" } });
       return;
     }
+    if (!aiConsent) return notify("Acepta el análisis externo debajo de las fotografías para continuar.");
     if (!photos.length) return notify("Selecciona al menos una fotografía.");
     setLoading(true); setDiagnosis(""); setProvider("");
     try {
@@ -56,6 +61,13 @@ export function DiagnosisPage({ plants, notify, authenticated }) {
       setDiagnosis(data.respuesta); setProvider(data.provider || ""); loadHistory();
     } catch (error) { notify(error.message); }
     finally { setLoading(false); }
+  };
+  const changeConsent = async (accepted) => {
+    try {
+      await userDataApi.updateSettings({ aiConsent: accepted });
+      setAiConsent(accepted);
+      notify(accepted ? "Análisis externo activado para tu cuenta." : "Análisis externo desactivado.");
+    } catch (error) { notify(error.message); }
   };
   const scheduleReview = async () => {
     const plant = plants.find((item) => item.instanceId === plantId);
@@ -78,6 +90,7 @@ export function DiagnosisPage({ plants, notify, authenticated }) {
       {!!photos.length && <div className="diagnosis-photos">{photos.map((item, index) => <button key={index} onClick={() => setPhotos(photos.filter((_, photoIndex) => photoIndex !== index))}><img src={item} alt={`Vista ${index + 1}`} /><span>×</span></button>)}</div>}
       <select value={plantId} onChange={(event) => setPlantId(event.target.value)}><option value="">No sé qué planta es — identificar con la foto</option>{plants.map((plant) => <option key={plant.instanceId} value={plant.instanceId}>{plant.nickname}</option>)}</select>
       <textarea value={symptoms} onChange={(event) => setSymptoms(event.target.value)} placeholder="¿Qué has observado? ¿Desde cuándo? ¿Cada cuánto riegas?" />
+      <label className="diagnosis-consent"><input type="checkbox" checked={aiConsent} disabled={!authenticated} onChange={(event) => changeConsent(event.target.checked)} /><span><b>Acepto el análisis externo de estas fotografías</b><small>Plant.id y Gemini las procesarán para identificar la especie y orientar el diagnóstico. No se guardan en el historial.</small></span></label>
       <button className="primary diagnosis-button" onClick={diagnose} disabled={loading}>{loading ? <><span className="spinner" /> Identificando y analizando…</> : <><ScanSearch size={19} /> Analizar con IA</>}</button>
       {loading && <div className="analysis-progress"><Sparkles size={18} /><div><b>PlantLive está observando la imagen</b><small>Identificando especie, síntomas y posibles cuidados…</small></div></div>}
       {diagnosis && <div className="diagnosis-result structured-result"><div className="diagnosis-result-head"><span className="result-icon"><Sparkles size={19} /></span><div><b>Orientación de PlantLive</b><small>Análisis visual · {provider}</small></div></div><div className="diagnosis-sections">{sections.map((section) => <article key={section.title} className={section.tone}><span>{section.icon}</span><div><h3>{section.title}</h3><p>{section.text}</p></div></article>)}</div><button className="followup-button" onClick={scheduleReview}><CalendarPlus size={16} /> Revisar evolución en 7 días</button><small className="diagnosis-disclaimer">Orientación basada en fotografías; no sustituye una inspección profesional.</small></div>}
