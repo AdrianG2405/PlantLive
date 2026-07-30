@@ -65,6 +65,55 @@ const GROUP_ALIASES = {
   "cáctus": { name: "Cactaceae", rank: "family" },
 };
 
+const RETAIL_GROUPS = {
+  suculenta: [
+    "Echeveria", "Haworthia", "Crassula", "Sedum", "Sempervivum",
+    "Lithops", "Gasteria", "Graptopetalum", "Pachyphytum", "Aeonium",
+    "Kalanchoe", "Aloe",
+  ],
+  suculentas: [
+    "Echeveria", "Haworthia", "Crassula", "Sedum", "Sempervivum",
+    "Lithops", "Gasteria", "Graptopetalum", "Pachyphytum", "Aeonium",
+    "Kalanchoe", "Aloe",
+  ],
+};
+
+// iNaturalist ordena por observaciones silvestres. Esta lista hace que las
+// especies habituales en viveros aparezcan antes sin ocultar el catálogo global.
+const COMMERCIAL_SPECIES = [
+  "Monstera deliciosa", "Monstera adansonii", "Monstera dubia", "Monstera siltepecana",
+  "Monstera standleyana", "Epipremnum aureum", "Epipremnum pinnatum",
+  "Philodendron hederaceum", "Philodendron erubescens", "Scindapsus pictus",
+  "Ficus elastica", "Ficus lyrata", "Ficus benjamina", "Ficus pumila",
+  "Goeppertia orbifolia", "Goeppertia makoyana", "Goeppertia ornata",
+  "Goeppertia insignis", "Maranta leuconeura", "Stromanthe sanguinea",
+  "Peperomia obtusifolia", "Peperomia caperata", "Peperomia argyreia",
+  "Pilea peperomioides", "Fittonia albivenis", "Chlorophytum comosum",
+  "Spathiphyllum wallisii", "Zamioculcas zamiifolia", "Dracaena trifasciata",
+  "Dracaena angolensis", "Dracaena marginata", "Dracaena fragrans",
+  "Aglaonema commutatum", "Syngonium podophyllum", "Tradescantia zebrina",
+  "Begonia maculata", "Begonia rex", "Heptapleurum arboricola",
+  "Pachira aquatica", "Beaucarnea recurvata", "Saintpaulia ionantha",
+  "Anthurium andraeanum", "Anthurium clarinervium", "Alocasia zebrina",
+  "Ceropegia woodii", "Dischidia nummularia", "Hoya carnosa", "Hoya kerrii",
+  "Echeveria elegans", "Echeveria agavoides", "Echeveria lilacina",
+  "Haworthia cooperi", "Haworthia cymbiformis", "Haworthiopsis attenuata",
+  "Crassula ovata", "Crassula perforata", "Sedum morganianum",
+  "Sedum rubrotinctum", "Pachyphytum oviferum", "Graptopetalum paraguayense",
+  "Kalanchoe tomentosa", "Sempervivum tectorum", "Lithops aucampiae",
+  "Mammillaria elongata", "Mammillaria gracilis", "Gymnocalycium mihanovichii",
+  "Schlumbergera truncata", "Rhipsalis baccifera", "Opuntia microdasys",
+].map(normalizeTaxon);
+
+const COMMERCIAL_GENERA = new Set(COMMERCIAL_SPECIES.map((name) => name.split(" ")[0]));
+
+const commercialRank = (taxon) => {
+  const name = normalizeTaxon(taxon.name);
+  const exact = COMMERCIAL_SPECIES.indexOf(name);
+  if (exact >= 0) return exact;
+  return COMMERCIAL_GENERA.has(name.split(" ")[0]) ? 500 : 1000;
+};
+
 const isPlantTaxon = (taxon) =>
   taxon.iconic_taxon_name === "Plantae" ||
   (taxon.ancestor_ids || []).map(String).includes(PLANTAE_TAXON_ID) ||
@@ -106,8 +155,54 @@ export async function findPlantPhoto(scientificName) {
   return taxon?.default_photo?.medium_url?.replace("medium.", "large.") || null;
 }
 
+async function searchRetailGroup(groupNames) {
+  const groups = await Promise.all(groupNames.map(async (groupName) => {
+    const groupParams = new URLSearchParams({
+      q: groupName, rank: "genus", taxon_id: PLANTAE_TAXON_ID,
+      per_page: "3", locale: "es",
+    });
+    const groupResponse = await fetch(`https://api.inaturalist.org/v1/taxa?${groupParams}`);
+    if (!groupResponse.ok) return [];
+    const candidates = ((await groupResponse.json()).results || []).filter(isPlantTaxon);
+    const genus = candidates.find((item) => normalizeTaxon(item.name) === normalizeTaxon(groupName));
+    if (!genus) return [];
+
+    const speciesParams = new URLSearchParams({
+      taxon_id: String(genus.id), rank: "species", per_page: "8",
+      order_by: "observations_count", order: "desc", locale: "es",
+    });
+    const speciesResponse = await fetch(`https://api.inaturalist.org/v1/taxa?${speciesParams}`);
+    if (!speciesResponse.ok) return [];
+    return ((await speciesResponse.json()).results || [])
+      .filter(isPlantTaxon)
+      .map((taxon) => ({ taxon, genus }));
+  }));
+
+  const unique = new Map();
+  groups.flat().forEach((item) => unique.set(item.taxon.id, item));
+  return [...unique.values()]
+    .sort((a, b) =>
+      commercialRank(a.taxon) - commercialRank(b.taxon) ||
+      Number(Boolean(b.taxon.default_photo)) - Number(Boolean(a.taxon.default_photo))
+    )
+    .map(({ taxon, genus }) => ({
+      id: `inat-${taxon.id}`,
+      taxonId: taxon.id,
+      nombreComun: spanishPlantName(taxon, genus),
+      nombreCientifico: taxon.name,
+      categoria: "Suculenta compacta",
+      descripcion: `Suculenta ornamental del género ${genus.name}, habitual en colecciones y viveros.`,
+      imagen: taxon.default_photo?.medium_url?.replace("medium.", "large.") || null,
+    }));
+}
+
 export async function searchPlants(query) {
   const normalizedInput = normalizeTaxon(query);
+  const retailGroup = RETAIL_GROUPS[normalizedInput];
+  if (retailGroup) {
+    const retailResults = await searchRetailGroup(retailGroup);
+    if (retailResults.length) return retailResults;
+  }
   const alias = GROUP_ALIASES[normalizedInput];
   const catalogQuery = alias?.name || query;
   const catalogRank = alias?.rank || "genus";
@@ -138,6 +233,11 @@ export async function searchPlants(query) {
   }
 
   if (!taxa.length) throw new Error("No encontramos especies para esa búsqueda");
+  taxa.sort((a, b) =>
+    commercialRank(a) - commercialRank(b) ||
+    Number(Boolean(b.default_photo)) - Number(Boolean(a.default_photo)) ||
+    (b.observations_count || 0) - (a.observations_count || 0)
+  );
   return Promise.all(taxa.map(async (taxon) => ({
       id: `inat-${taxon.id}`,
       taxonId: taxon.id,
