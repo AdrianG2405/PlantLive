@@ -68,16 +68,32 @@ Contexto: {sintomas or "ninguno"}
 Plant.id: {json.dumps(context, ensure_ascii=False)}
 
 Contrasta las probabilidades con lo visible; no las trates como certezas.
-Responde en español, máximo 220 palabras, texto plano, sin Markdown ni asteriscos.
-Usa exactamente: IDENTIFICACIÓN, LO QUE VEO, CAUSA MÁS PROBABLE,
-QUÉ HACER AHORA y QUÉ VIGILAR. Incluye nombre común, científico y confianza.
-Máximo 3 acciones. Si falta evidencia, pide una sola foto o dato concreto."""
+Tu tarea tiene dos partes obligatorias: identificar la planta y evaluar su estado.
+Aunque parezca sana, completa el diagnóstico indicando que no observas señales claras
+de enfermedad y ofrece cuidados preventivos. No inventes plagas ni enfermedades.
+
+Responde en español, entre 140 y 260 palabras, en texto plano, sin Markdown ni asteriscos.
+Escribe siempre estas cinco secciones, en este orden y sin omitir ninguna:
+IDENTIFICACIÓN:
+LO QUE VEO:
+CAUSA MÁS PROBABLE:
+QUÉ HACER AHORA:
+QUÉ VIGILAR:
+
+En IDENTIFICACIÓN incluye nombre común, científico y confianza.
+En LO QUE VEO describe el estado visual, señales sanas y síntomas observables.
+En CAUSA MÁS PROBABLE indica la causa o, si está sana, que no hay una afección evidente.
+En QUÉ HACER AHORA incluye un máximo de 3 acciones concretas.
+En QUÉ VIGILAR explica qué cambios justificarían actuar o pedir otra fotografía."""
     payload = {
         "contents": [{"role": "user", "parts": [
             *[{"inlineData": {"mimeType": "image/jpeg", "data": image}} for image in images_base64],
             {"text": prompt},
         ]}],
-        "generationConfig": {"maxOutputTokens": 500},
+        "generationConfig": {
+            "maxOutputTokens": 1200,
+            "thinkingConfig": {"thinkingLevel": "minimal"},
+        },
     }
     query = urllib.parse.urlencode({"key": os.environ["GEMINI_API_KEY"]})
     response = _post_json(f"{GEMINI_URL}/{model}:generateContent?{query}", payload, {}, 90)
