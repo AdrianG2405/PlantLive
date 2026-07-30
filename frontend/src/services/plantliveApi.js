@@ -251,11 +251,29 @@ export async function searchPlants(query) {
 }
 
 export async function createCareProfile(plant) {
-  const care = await request("/plantas/ficha-ia", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ nombreCientifico: plant.nombreCientifico, nombreComun: plant.nombreComun }),
-  });
-  return { ...plant, ...care, id: plant.id, imagen: plant.imagen };
+  try {
+    const care = await request("/plantas/ficha-ia", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nombreCientifico: plant.nombreCientifico, nombreComun: plant.nombreComun }),
+    });
+    return { ...plant, ...care, id: plant.id, imagen: plant.imagen };
+  } catch {
+    return {
+      ...plant,
+      categoria: plant.categoria || "interior",
+      descripcion: plant.descripcion || "Ficha inicial pendiente de personalizar.",
+      luz: "Luz abundante sin sol fuerte hasta confirmar la especie",
+      ubicacion: "Lugar luminoso, ventilado y protegido de temperaturas extremas",
+      sustrato: "Sustrato aireado y drenante",
+      riegoDias: 10,
+      abonoDias: 30,
+      fertilizante: "Fertilizante equilibrado a media dosis",
+      humedad: "Moderada",
+      temperatura: "18–26 °C",
+      toxicidad: "Consulta la especie antes de acercarla a mascotas o niños",
+      careProfilePending: true,
+    };
+  }
 }
 
 export function diagnosePlant({ imagenes, sintomas, planta }) {

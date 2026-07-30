@@ -35,7 +35,10 @@ export function HomePage({ addPlant, notify, authenticated }) {
     setAddingId(plant.id);
     try {
       const completePlant = plant.luz ? plant : await createCareProfile(plant);
-      await addPlant(completePlant); notify(`${completePlant.nombreComun} se ha añadido a tu jardín.`);
+      await addPlant(completePlant);
+      notify(completePlant.careProfilePending
+        ? `${completePlant.nombreComun} se ha añadido con una ficha inicial.`
+        : `${completePlant.nombreComun} se ha añadido a tu jardín.`);
       navigate("/plantas");
     } catch (error) { notify(error.message); }
     finally { setAddingId(""); }
