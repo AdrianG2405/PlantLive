@@ -39,7 +39,7 @@ function App() {
       <Route path="/panel" element={<ProtectedRoute><DashboardPage notify={notify} /></ProtectedRoute>} />
       <Route path="/plantas" element={<MyPlantsPage {...garden} notifications={notifications} notify={notify} authenticated={Boolean(user)} />} />
       <Route path="/calendario" element={<ProtectedRoute><CalendarPage upcoming={garden.upcoming} plants={garden.plants} notify={notify} /></ProtectedRoute>} />
-      <Route path="/diagnostico" element={<DiagnosisPage plants={garden.plants} notify={notify} authenticated={Boolean(user)} />} />
+      <Route path="/diagnostico" element={<DiagnosisPage plants={garden.plants} addPlant={garden.addPlant} notify={notify} authenticated={Boolean(user)} />} />
       <Route path="/sobre-nosotros" element={<AboutPage />} />
       <Route path="/privacidad" element={<LegalPage />} />
       <Route path="/ajustes" element={<ProtectedRoute><SettingsPage notify={notify} /></ProtectedRoute>} />

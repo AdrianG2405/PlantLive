@@ -83,7 +83,8 @@ CAUSA MÁS PROBABLE:
 QUÉ HACER AHORA:
 QUÉ VIGILAR:
 
-En IDENTIFICACIÓN incluye nombre común, científico y confianza.
+En IDENTIFICACIÓN usa exactamente una sola línea con este formato:
+IDENTIFICACIÓN: Nombre común (Nombre científico). Confianza: alta, media o baja.
 En LO QUE VEO describe el estado visual, señales sanas y síntomas observables.
 En CAUSA MÁS PROBABLE indica la causa o, si está sana, que no hay una afección evidente.
 En QUÉ HACER AHORA incluye un máximo de 3 acciones concretas.

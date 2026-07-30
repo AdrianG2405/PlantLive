@@ -3,6 +3,7 @@ import logging
 import json
 import hashlib
 import os
+import re
 import secrets
 from datetime import datetime, timedelta
 
@@ -35,6 +36,42 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def extract_diagnosed_plant(response: str) -> dict | None:
+    section = re.search(
+        r"IDENTIFICACI[ÓO]N\s*:?\s*(.*?)(?=\n\s*LO QUE VEO\s*:|LO QUE VEO\s*:|$)",
+        response or "",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not section:
+        return None
+    text = section.group(1).replace("**", "").strip()
+    common = re.search(r"nombre com[úu]n\s*:?\s*([^\n.;]+)", text, re.IGNORECASE)
+    scientific = re.search(r"nombre cient[íi]fico\s*:?\s*([^\n.;]+)", text, re.IGNORECASE)
+    if common and scientific:
+        common_name = common.group(1).strip()
+        scientific_name = scientific.group(1).strip()
+        return {
+            "nombreComun": common_name,
+            "nombreCientifico": scientific_name,
+            "displayName": f"{common_name} ({scientific_name})"[:255],
+        }
+    first_line = next((line.strip() for line in text.splitlines() if line.strip()), "")
+    first_line = re.split(r"\s*Confianza\s*:", first_line, flags=re.IGNORECASE)[0].strip(" .;-")
+    parenthesized = re.match(r"(.+?)\s*\(([^()]+)\)\s*$", first_line)
+    if parenthesized:
+        common_name, scientific_name = (item.strip() for item in parenthesized.groups())
+        return {
+            "nombreComun": common_name,
+            "nombreCientifico": scientific_name,
+            "displayName": f"{common_name} ({scientific_name})"[:255],
+        }
+    return {"nombreComun": first_line[:255], "nombreCientifico": "", "displayName": first_line[:255]} if first_line else None
+
+
+def extract_diagnosed_plant_name(response: str) -> str | None:
+    return (extract_diagnosed_plant(response) or {}).get("displayName")
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
@@ -339,16 +376,23 @@ def diagnosticar(
                 "El análisis con IA no está configurado. "
                 "Añade PLANT_ID_API_KEY y GEMINI_API_KEY en Render."
             )
+        identified_details = extract_diagnosed_plant(respuesta)
+        identified_plant = datos.get("planta") or (identified_details or {}).get("displayName")
         db.add(DiagnosisHistory(
             user_id=user.id,
-            plant_name=datos.get("planta"),
+            plant_name=identified_plant,
             symptoms=datos.get("sintomas"),
             response=respuesta,
             provider=provider,
         ))
         db.add(ApiUsage(user_id=user.id, operation="diagnosis", provider=provider))
         db.commit()
-        return {"respuesta": respuesta, "provider": provider}
+        return {
+            "respuesta": respuesta,
+            "provider": provider,
+            "plantName": identified_plant,
+            "identifiedPlant": identified_details,
+        }
     except Exception as error:
         raise HTTPException(502, f"No se pudo analizar la imagen: {error}") from error
 
@@ -427,7 +471,9 @@ def diagnosis_history(db: Session = Depends(get_db), user: User = Depends(get_cu
         DiagnosisHistory.user_id == user.id
     ).order_by(DiagnosisHistory.created_at.desc()).limit(50).all()
     return [{
-        "id": row.id, "plantName": row.plant_name, "symptoms": row.symptoms,
+        "id": row.id,
+        "plantName": row.plant_name or extract_diagnosed_plant_name(row.response),
+        "symptoms": row.symptoms,
         "response": row.response, "provider": row.provider,
         "createdAt": row.created_at.isoformat(),
     } for row in rows]
