@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { createCareProfile, seasonalCareDays, userDataApi } from "../services/plantliveApi";
+import { createCareProfile, findPlantPhoto, seasonalCareDays, userDataApi } from "../services/plantliveApi";
 
 const datePlus = (days) => {
   const interval = Number(days);
@@ -16,13 +16,23 @@ export function usePlants(user, notify) {
   useEffect(() => {
     if (!user) { setPlants([]); return; }
     setLoadingPlants(true);
-    userDataApi.plants().then(setPlants).catch((error) => notify(error.message)).finally(() => setLoadingPlants(false));
+    userDataApi.plants().then((items) => {
+      setPlants(items);
+      items.filter((plant) => !plant.imagen && plant.nombreCientifico).forEach(async (plant) => {
+        const imagen = await findPlantPhoto(plant.nombreCientifico).catch(() => null);
+        if (!imagen) return;
+        const saved = await userDataApi.updatePlant(plant.serverId, { imagen }).catch(() => null);
+        if (saved) setPlants((current) => current.map((item) => item.serverId === plant.serverId ? saved : item));
+      });
+    }).catch((error) => notify(error.message)).finally(() => setLoadingPlants(false));
   }, [user, notify]);
 
   const addPlant = async (plant) => {
     if (!user) throw new Error("Inicia sesión para guardar plantas");
+    const imagen = plant.imagen || await findPlantPhoto(plant.nombreCientifico).catch(() => null);
     const item = {
       ...plant,
+      imagen,
       instanceId: globalThis.crypto?.randomUUID?.() || `plant-${Date.now()}`,
       nickname: plant.nombreComun,
       nextWater: datePlus(seasonalCareDays(plant, "riego")),

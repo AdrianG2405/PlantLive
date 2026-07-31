@@ -122,12 +122,14 @@ body{background:radial-gradient(circle at 10% 5%,#eef8e8 0,transparent 24%),#f7f
   .dashboard-page{padding-top:0}
   .stat-grid{margin-top:-58px;gap:10px}
   .due-grid{grid-template-columns:1fr}
-  .calendar-page{padding:34px 14px 58px;overflow-x:auto}
+  .calendar-page{padding:34px 10px 58px;overflow-x:visible}
   .task-form{grid-template-columns:1fr}
   .task-form input,.task-form select,.task-form button{width:100%;min-height:44px}
-  .month-grid{min-width:650px}
-  .month-grid article{min-height:94px;padding:7px}
-  .month-grid article small{font-size:9px;height:auto;padding:4px}
+  .month-grid{min-width:0;width:100%;border-radius:13px}
+  .month-grid>div{padding:9px 2px;font-size:10px}
+  .month-grid article{min-width:0;min-height:66px;padding:5px 3px;border-right:1px solid var(--line)}
+  .month-grid article>b{font-size:11px}
+  .month-grid article small{width:7px;height:7px;margin:5px auto 0;padding:0;border-radius:50%;font-size:0}
   .task-list{min-width:0}
   .task-list>div{gap:10px}
   .auth-page{display:block;min-height:auto}

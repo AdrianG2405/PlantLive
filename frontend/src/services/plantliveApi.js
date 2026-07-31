@@ -151,8 +151,21 @@ async function findWikimediaPhoto(scientificName) {
   if (!response.ok) return null;
   const pages = Object.values((await response.json()).query?.pages || {});
   const expected = normalizeTaxon(scientificName);
-  const page = pages.find((item) => normalizeTaxon(item.title).includes(expected));
+  const page = pages.find((item) => normalizeTaxon(item.title).includes(expected)) || pages[0];
   return page?.imageinfo?.[0]?.thumburl || null;
+}
+
+async function findObservationPhoto(taxonId) {
+  if (!taxonId) return null;
+  const params = new URLSearchParams({
+    taxon_id: String(taxonId), photos: "true", quality_grade: "research",
+    per_page: "3", order_by: "votes", order: "desc",
+  });
+  const response = await fetch(`https://api.inaturalist.org/v1/observations?${params}`);
+  if (!response.ok) return null;
+  const observations = (await response.json()).results || [];
+  const photo = observations.flatMap((item) => item.photos || [])[0];
+  return photo?.url?.replace("square.", "large.") || null;
 }
 
 export async function findPlantPhoto(scientificName) {
@@ -164,7 +177,17 @@ export async function findPlantPhoto(scientificName) {
   const taxon = data.results?.filter(isPlantTaxon).find((item) =>
     normalizeTaxon(item.name) === expected || normalizeTaxon(item.preferred_common_name) === expected
   );
-  return taxon?.default_photo?.medium_url?.replace("medium.", "large.") || null;
+  const direct = taxon?.default_photo?.medium_url?.replace("medium.", "large.") ||
+    await findObservationPhoto(taxon?.id).catch(() => null) ||
+    await findWikimediaPhoto(scientificName).catch(() => null);
+  if (direct) return direct;
+
+  const baseName = scientificName
+    .replace(/\s+(var\.|subsp\.|ssp\.|f\.).*$/i, "")
+    .replace(/\s+['â€˜â€™"].*$/, "")
+    .trim();
+  if (normalizeTaxon(baseName) === expected) return null;
+  return findWikimediaPhoto(baseName).catch(() => null);
 }
 
 async function searchRetailGroup(groupNames) {
