@@ -29,7 +29,7 @@ from hybrid_ai_service import advanced_ai_configured, crear_ficha_avanzada, diag
 from models import ApiUsage, AuthSession, CareEvent, CustomTask, DiagnosisHistory, EmailVerificationToken, LegalAcceptance, NotificationDelivery, PasswordResetToken, Planta, PushSubscription, User, UserFeedback, UserPlant, UserSettings
 from storage_service import UPLOAD_DIR, delete_plant_photo, save_plant_photo
 from email_service import send_email_verification, send_password_reset
-from notification_worker import run_once as send_due_notifications, send_test_push
+from notification_worker import run_once as send_due_notifications, send_email as send_reminder_email, send_test_push
 
 Base.metadata.create_all(bind=engine)
 apply_compatible_schema_updates()
@@ -454,6 +454,22 @@ def test_notification(user: User = Depends(get_current_user)):
     if not result["sent"]:
         raise HTTPException(502, "La notificación no pudo enviarse. Revisa las claves VAPID.")
     return result
+
+
+@app.post("/user/test-email")
+def test_email(user: User = Depends(get_current_user)):
+    try:
+        sent = send_reminder_email(
+            user,
+            "PlantLive · Correo de prueba",
+            "Los recordatorios por correo están conectados correctamente.",
+        )
+    except Exception as error:
+        logger.exception("Falló el correo de prueba para el usuario %s", user.id)
+        raise HTTPException(502, "Resend rechazó el correo. Revisa RESEND_API_KEY y EMAIL_FROM en Render.") from error
+    if not sent:
+        raise HTTPException(409, "No hay ningún proveedor de correo configurado en Render.")
+    return {"sent": True, "email": user.email}
 
 
 @app.post("/user/photos")
