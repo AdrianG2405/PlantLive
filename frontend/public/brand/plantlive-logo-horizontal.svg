@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="500" viewBox="0 0 1600 500">
+  <defs>
+    <linearGradient id="bg" x1="55" y1="45" x2="405" y2="440" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#287258"/>
+      <stop offset="1" stop-color="#123f31"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="500" rx="80" fill="#f8faf4"/>
+  <rect x="70" y="70" width="360" height="360" rx="96" fill="url(#bg)"/>
+  <path d="M250 350V225" fill="none" stroke="#d8f57b" stroke-width="26" stroke-linecap="round"/>
+  <path d="M248 240c-62 0-97-35-97-96 63 0 97 34 97 96Z" fill="#d8f57b"/>
+  <path d="M252 288c62 0 97-35 97-96-63 0-97 34-97 96Z" fill="#a9d85c"/>
+  <path d="M192 350h116" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round" opacity=".92"/>
+  <text x="505" y="292" fill="#123f31" font-family="Arial, Helvetica, sans-serif" font-size="150" font-weight="800" letter-spacing="-6">PlantLive</text>
+  <text x="515" y="352" fill="#5f7468" font-family="Arial, Helvetica, sans-serif" font-size="31" font-weight="600" letter-spacing="5">CUIDA · COMPRENDE · CULTIVA</text>
+</svg>
