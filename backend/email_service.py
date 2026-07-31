@@ -1,6 +1,11 @@
 import json
 import os
+from urllib.error import HTTPError, URLError
 import urllib.request
+
+
+class EmailDeliveryError(RuntimeError):
+    pass
 
 
 def send_email(to: str, subject: str, html: str) -> bool:
@@ -23,8 +28,18 @@ def send_email(to: str, subject: str, html: str) -> bool:
         },
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=20):
-        return True
+    try:
+        with urllib.request.urlopen(request, timeout=20):
+            return True
+    except HTTPError as error:
+        try:
+            payload = json.loads(error.read().decode())
+            detail = payload.get("message") or payload.get("name") or f"HTTP {error.code}"
+        except Exception:
+            detail = f"HTTP {error.code}"
+        raise EmailDeliveryError(f"Resend: {detail}") from error
+    except URLError as error:
+        raise EmailDeliveryError("No se pudo conectar con Resend") from error
 
 
 def send_password_reset(to: str, token: str) -> bool:

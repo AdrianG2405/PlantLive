@@ -466,7 +466,7 @@ def test_email(user: User = Depends(get_current_user)):
         )
     except Exception as error:
         logger.exception("Falló el correo de prueba para el usuario %s", user.id)
-        raise HTTPException(502, "Resend rechazó el correo. Revisa RESEND_API_KEY y EMAIL_FROM en Render.") from error
+        raise HTTPException(502, str(error)[:300] or "Resend rechazó el correo.") from error
     if not sent:
         raise HTTPException(409, "No hay ningún proveedor de correo configurado en Render.")
     return {"sent": True, "email": user.email}
