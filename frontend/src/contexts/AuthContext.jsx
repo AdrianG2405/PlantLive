@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { authApi } from "../services/plantliveApi";
 import { AuthContext } from "./authStore";
 
@@ -17,10 +17,15 @@ export function AuthProvider({ children }) {
     setUser(data.user);
   };
   const logout = async () => {
-    try { await authApi.logout(); } finally {
+    try { await authApi.logout(); } catch { /* La sesión puede haber sido revocada en otro dispositivo. */ } finally {
       localStorage.removeItem("plantlive-token");
       setUser(null);
     }
   };
-  return <AuthContext.Provider value={{ user, loading, authenticate, logout }}>{children}</AuthContext.Provider>;
+  const refreshUser = useCallback(async () => {
+    const current = await authApi.me();
+    setUser(current);
+    return current;
+  }, []);
+  return <AuthContext.Provider value={{ user, loading, authenticate, logout, refreshUser }}>{children}</AuthContext.Provider>;
 }

@@ -1,0 +1,25 @@
+name: Encrypted database backup
+
+on:
+  schedule:
+    - cron: "30 3 * * 1"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create encrypted PostgreSQL dump
+        env:
+          DATABASE_URL: ${{ secrets.SUPABASE_DATABASE_URL }}
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_ENCRYPTION_PASSWORD }}
+        run: |
+          test -n "$DATABASE_URL"
+          test -n "$BACKUP_PASSWORD"
+          pg_dump --no-owner --no-acl "$DATABASE_URL" | gzip | openssl enc -aes-256-cbc -salt -pbkdf2 -pass env:BACKUP_PASSWORD -out plantlive.sql.gz.enc
+      - name: Store encrypted backup for 14 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: plantlive-backup-${{ github.run_id }}
+          path: plantlive.sql.gz.enc
+          retention-days: 14

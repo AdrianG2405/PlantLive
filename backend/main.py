@@ -5,13 +5,19 @@ import hashlib
 import os
 import re
 import secrets
+import time
+import uuid
+from collections import defaultdict, deque
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, File, Header, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+from sqlalchemy import text as sql_text
 
 load_dotenv(Path(__file__).with_name(".env"))
 logger = logging.getLogger("plantlive")
@@ -20,9 +26,9 @@ from ai_service import buscar_plantas_con_ia, crear_ficha_planta, diagnosticar_i
 from auth import create_session, get_current_user, hash_password, verify_password
 from database import Base, engine, get_db
 from hybrid_ai_service import advanced_ai_configured, crear_ficha_avanzada, diagnosticar_avanzado, gemini_configured, preguntar_avanzado
-from models import ApiUsage, AuthSession, CareEvent, CustomTask, DiagnosisHistory, PasswordResetToken, Planta, PushSubscription, User, UserPlant, UserSettings
+from models import ApiUsage, AuthSession, CareEvent, CustomTask, DiagnosisHistory, EmailVerificationToken, LegalAcceptance, NotificationDelivery, PasswordResetToken, Planta, PushSubscription, User, UserFeedback, UserPlant, UserSettings
 from storage_service import UPLOAD_DIR, delete_plant_photo, save_plant_photo
-from email_service import send_password_reset
+from email_service import send_email_verification, send_password_reset
 from notification_worker import run_once as send_due_notifications
 
 Base.metadata.create_all(bind=engine)
@@ -36,6 +42,41 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+rate_buckets: dict[str, deque] = defaultdict(deque)
+
+
+def enforce_rate_limit(request: Request, action: str, maximum: int, window_seconds: int = 900) -> None:
+    forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+    address = forwarded or (request.client.host if request.client else "unknown")
+    key, now = f"{action}:{address}", time.monotonic()
+    bucket = rate_buckets[key]
+    while bucket and bucket[0] <= now - window_seconds:
+        bucket.popleft()
+    if len(bucket) >= maximum:
+        raise HTTPException(429, "Demasiados intentos. Espera unos minutos y vuelve a intentarlo")
+    bucket.append(now)
+
+
+@app.middleware("http")
+async def public_security(request: Request, call_next):
+    request_id, started = uuid.uuid4().hex[:12], time.monotonic()
+    content_length = int(request.headers.get("content-length", "0") or 0)
+    if content_length > 12 * 1024 * 1024:
+        return JSONResponse(status_code=413, content={"detail": "La solicitud es demasiado grande"})
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("Error no controlado [%s] %s %s", request_id, request.method, request.url.path)
+        response = JSONResponse(status_code=500, content={"detail": "Error interno", "requestId": request_id})
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(self), geolocation=(), microphone=()"
+    response.headers["Cache-Control"] = "no-store" if request.url.path.startswith(("/auth", "/user")) else "no-cache"
+    response.headers["X-Request-ID"] = request_id
+    response.headers["X-Response-Time-Ms"] = str(round((time.monotonic() - started) * 1000))
+    return response
 
 
 def extract_diagnosed_plant(response: str) -> dict | None:
@@ -84,6 +125,12 @@ def health():
     }
 
 
+@app.get("/ready")
+def readiness(db: Session = Depends(get_db)):
+    db.execute(sql_text("SELECT 1"))
+    return {"status": "ready", "database": "ok"}
+
+
 @app.post("/internal/send-reminders")
 def trigger_reminders(x_cron_secret: str | None = Header(default=None)):
     expected = os.getenv("CRON_SECRET")
@@ -92,13 +139,32 @@ def trigger_reminders(x_cron_secret: str | None = Header(default=None)):
     return {"sent": send_due_notifications()}
 
 
-def public_user(user: User) -> dict:
+def is_email_verified(db: Session, user_id: int) -> bool:
+    tokens = db.query(EmailVerificationToken).filter(EmailVerificationToken.user_id == user_id)
+    return not tokens.first() or tokens.filter(EmailVerificationToken.used.is_(True)).first() is not None
+
+
+def require_verified_email(db: Session, user: User) -> None:
+    if not is_email_verified(db, user.id):
+        raise HTTPException(403, "Verifica tu correo electrónico para utilizar esta función")
+
+
+def public_user(db: Session, user: User) -> dict:
     return {
         "id": user.id,
         "name": user.name,
         "email": user.email,
         "notificationsEnabled": user.notifications_enabled,
+        "emailVerified": is_email_verified(db, user.id),
     }
+
+def valid_new_password(password: str) -> bool:
+    return (
+        len(password) >= 10
+        and any(character.islower() for character in password)
+        and any(character.isupper() for character in password)
+        and any(character.isdigit() for character in password)
+    )
 
 
 def get_or_create_settings(db: Session, user_id: int) -> UserSettings:
@@ -112,33 +178,50 @@ def get_or_create_settings(db: Session, user_id: int) -> UserSettings:
 
 
 @app.post("/auth/register")
-def register(datos: dict, db: Session = Depends(get_db)):
+def register(datos: dict, request: Request, db: Session = Depends(get_db)):
+    enforce_rate_limit(request, "register", 8, 3600)
     name = datos.get("name", "").strip()
     email = datos.get("email", "").strip().lower()
     password = datos.get("password", "")
-    if len(name) < 2 or "@" not in email or len(password) < 8:
-        raise HTTPException(400, "Revisa el nombre, email y contraseña (mínimo 8 caracteres)")
+    if datos.get("acceptLegal") is not True:
+        raise HTTPException(400, "Debes aceptar la privacidad y las condiciones de uso")
+    if len(name) < 2 or "@" not in email or not valid_new_password(password):
+        raise HTTPException(400, "La contraseña debe tener 10 caracteres, mayúscula, minúscula y número")
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(409, "Ya existe una cuenta con ese email")
     user = User(name=name, email=email, password_hash=hash_password(password))
     db.add(user)
     db.commit()
     db.refresh(user)
-    return {"token": create_session(db, user.id), "user": public_user(user)}
+    db.add(LegalAcceptance(user_id=user.id, version="2026-07-31"))
+    verification_token = secrets.token_urlsafe(32)
+    db.add(EmailVerificationToken(
+        user_id=user.id,
+        token_hash=hashlib.sha256(verification_token.encode()).hexdigest(),
+        expires_at=datetime.utcnow() + timedelta(hours=24),
+    ))
+    db.commit()
+    if os.getenv("RESEND_API_KEY"):
+        try:
+            send_email_verification(user.email, verification_token)
+        except Exception:
+            logger.exception("No se pudo enviar la verificación de correo")
+    return {"token": create_session(db, user.id), "user": public_user(db, user)}
 
 
 @app.post("/auth/login")
-def login(datos: dict, db: Session = Depends(get_db)):
+def login(datos: dict, request: Request, db: Session = Depends(get_db)):
+    enforce_rate_limit(request, "login", 12, 900)
     email = datos.get("email", "").strip().lower()
     user = db.query(User).filter(User.email == email).first()
     if not user or not verify_password(datos.get("password", ""), user.password_hash):
         raise HTTPException(401, "Email o contraseña incorrectos")
-    return {"token": create_session(db, user.id), "user": public_user(user)}
+    return {"token": create_session(db, user.id), "user": public_user(db, user)}
 
 
 @app.get("/auth/me")
-def me(user: User = Depends(get_current_user)):
-    return public_user(user)
+def me(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    return public_user(db, user)
 
 
 @app.get("/user/settings")
@@ -156,6 +239,13 @@ def get_settings(db: Session = Depends(get_db), user: User = Depends(get_current
 @app.patch("/user/settings")
 def update_settings(datos: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     item = get_or_create_settings(db, user.id)
+    if "timezone" in datos:
+        try:
+            ZoneInfo(str(datos["timezone"]))
+        except ZoneInfoNotFoundError as error:
+            raise HTTPException(400, "Zona horaria no válida") from error
+    if "reminderHour" in datos and not 0 <= int(datos["reminderHour"]) <= 23:
+        raise HTTPException(400, "La hora debe estar entre 0 y 23")
     mappings = {
         "timezone": "timezone", "reminderHour": "reminder_hour",
         "emailNotifications": "email_notifications",
@@ -166,6 +256,63 @@ def update_settings(datos: dict, db: Session = Depends(get_db), user: User = Dep
             setattr(item, target, datos[source])
     db.commit()
     return get_settings(db, user)
+
+
+@app.get("/user/export")
+def export_user_data(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    plants = db.query(UserPlant).filter(UserPlant.user_id == user.id).all()
+    diagnoses = db.query(DiagnosisHistory).filter(DiagnosisHistory.user_id == user.id).all()
+    care = db.query(CareEvent).filter(CareEvent.user_id == user.id).all()
+    tasks = db.query(CustomTask).filter(CustomTask.user_id == user.id).all()
+    feedback = db.query(UserFeedback).filter(UserFeedback.user_id == user.id).all()
+    return {
+        "exportedAt": datetime.utcnow().isoformat() + "Z",
+        "account": public_user(db, user),
+        "settings": get_settings(db, user),
+        "plants": [{"serverId": row.id, **json.loads(row.data)} for row in plants],
+        "diagnoses": [{
+            "plantName": row.plant_name,
+            "symptoms": row.symptoms,
+            "response": row.response,
+            "provider": row.provider,
+            "createdAt": row.created_at.isoformat(),
+        } for row in diagnoses],
+        "careEvents": [{
+            "plantId": row.plant_id,
+            "type": row.event_type,
+            "notes": row.notes,
+            "completedAt": row.completed_at.isoformat(),
+        } for row in care],
+        "tasks": [{
+            "plantId": row.plant_id,
+            "title": row.title,
+            "type": row.task_type,
+            "dueDate": row.due_date,
+            "completed": row.completed,
+        } for row in tasks],
+        "feedback": [{"type": row.feedback_type, "rating": row.rating, "comment": row.comment, "createdAt": row.created_at.isoformat()} for row in feedback],
+    }
+
+
+@app.delete("/user/account")
+def delete_account(datos: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if datos.get("confirmation") != "ELIMINAR" or not verify_password(datos.get("password", ""), user.password_hash):
+        raise HTTPException(400, "Confirmación o contraseña incorrectas")
+    plants = db.query(UserPlant).filter(UserPlant.user_id == user.id).all()
+    for row in plants:
+        for photo_url in (json.loads(row.data).get("gallery") or []):
+            try:
+                delete_plant_photo(photo_url, user.id)
+            except Exception:
+                logger.exception("No se pudo eliminar una fotografía de la cuenta")
+    for model in (
+        PushSubscription, NotificationDelivery, UserFeedback, ApiUsage, CareEvent, CustomTask, DiagnosisHistory,
+        UserPlant, UserSettings, EmailVerificationToken, LegalAcceptance, PasswordResetToken, AuthSession,
+    ):
+        db.query(model).filter(model.user_id == user.id).delete(synchronize_session=False)
+    db.delete(user)
+    db.commit()
+    return {"ok": True}
 
 
 @app.post("/auth/logout")
@@ -181,8 +328,66 @@ def logout(
     return {"ok": True}
 
 
+@app.post("/auth/change-password")
+def change_password(datos: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    current_password = datos.get("currentPassword", "")
+    new_password = datos.get("newPassword", "")
+    if not verify_password(current_password, user.password_hash):
+        raise HTTPException(400, "La contraseña actual no es correcta")
+    if not valid_new_password(new_password):
+        raise HTTPException(400, "La nueva contraseña debe tener 10 caracteres, mayúscula, minúscula y número")
+    user.password_hash = hash_password(new_password)
+    db.query(AuthSession).filter(AuthSession.user_id == user.id).delete()
+    db.commit()
+    return {"message": "Contraseña actualizada. Vuelve a iniciar sesión."}
+
+
+@app.post("/auth/logout-all")
+def logout_all(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    db.query(AuthSession).filter(AuthSession.user_id == user.id).delete()
+    db.commit()
+    return {"ok": True}
+
+
+@app.post("/auth/resend-verification")
+def resend_verification(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if is_email_verified(db, user.id):
+        return {"message": "El correo ya está verificado"}
+    db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.user_id == user.id,
+        EmailVerificationToken.used.is_(False),
+    ).delete()
+    token = secrets.token_urlsafe(32)
+    db.add(EmailVerificationToken(
+        user_id=user.id,
+        token_hash=hashlib.sha256(token.encode()).hexdigest(),
+        expires_at=datetime.utcnow() + timedelta(hours=24),
+    ))
+    db.commit()
+    if not os.getenv("RESEND_API_KEY"):
+        raise HTTPException(503, "El envío de correo no está configurado")
+    send_email_verification(user.email, token)
+    return {"message": "Correo de verificación enviado"}
+
+
+@app.post("/auth/verify-email")
+def verify_email(datos: dict, db: Session = Depends(get_db)):
+    token_hash = hashlib.sha256(datos.get("token", "").encode()).hexdigest()
+    row = db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.token_hash == token_hash,
+        EmailVerificationToken.expires_at > datetime.utcnow(),
+        EmailVerificationToken.used.is_(False),
+    ).first()
+    if not row:
+        raise HTTPException(400, "El enlace de verificación no es válido o ha caducado")
+    row.used = True
+    db.commit()
+    return {"message": "Correo verificado correctamente"}
+
+
 @app.post("/auth/forgot-password")
-def forgot_password(datos: dict, db: Session = Depends(get_db)):
+def forgot_password(datos: dict, request: Request, db: Session = Depends(get_db)):
+    enforce_rate_limit(request, "forgot", 5, 3600)
     email = datos.get("email", "").strip().lower()
     user = db.query(User).filter(User.email == email).first()
     response = {"message": "Si la cuenta existe, recibirás instrucciones para recuperar el acceso."}
@@ -214,8 +419,8 @@ def reset_password(datos: dict, db: Session = Depends(get_db)):
         PasswordResetToken.used.is_(False),
     ).first()
     password = datos.get("password", "")
-    if not row or len(password) < 8:
-        raise HTTPException(400, "Enlace inválido o contraseña demasiado corta")
+    if not row or not valid_new_password(password):
+        raise HTTPException(400, "Enlace inválido o contraseña poco segura")
     user = db.query(User).filter(User.id == row.user_id).first()
     user.password_hash = hash_password(password)
     row.used = True
@@ -270,6 +475,7 @@ def preguntar(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    require_verified_email(db, user)
     pregunta = datos.get("pregunta", "").strip()
     if not pregunta:
         raise HTTPException(400, "Escribe una pregunta")
@@ -306,7 +512,8 @@ def preguntar(
 
 
 @app.post("/plantas/buscar-ia")
-def buscar_planta_ia(datos: dict):
+def buscar_planta_ia(datos: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    require_verified_email(db, user)
     consulta = datos.get("consulta", "").strip()
     if len(consulta) < 2:
         raise HTTPException(400, "Escribe el nombre de una planta")
@@ -317,20 +524,39 @@ def buscar_planta_ia(datos: dict):
 
 
 @app.post("/plantas/ficha-ia")
-def ficha_planta_ia(datos: dict):
+def ficha_planta_ia(
+    datos: dict,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    require_verified_email(db, user)
     nombre_cientifico = datos.get("nombreCientifico", "").strip()
     if not nombre_cientifico:
         raise HTTPException(400, "Falta el nombre científico")
+    today = datetime.utcnow().date()
+    used = db.query(ApiUsage).filter(
+        ApiUsage.user_id == user.id,
+        ApiUsage.operation == "care_profile",
+        ApiUsage.created_at >= datetime.combine(today, datetime.min.time()),
+    ).count()
+    if used >= int(os.getenv("DAILY_CARE_PROFILE_LIMIT", "30")):
+        raise HTTPException(429, "Has alcanzado el límite diario de fichas de cuidados")
     try:
         if gemini_configured():
-            return crear_ficha_avanzada(
+            result = crear_ficha_avanzada(
                 nombre_cientifico,
                 datos.get("nombreComun"),
                 datos.get("contexto"),
             )
-        if os.getenv("ENABLE_LOCAL_AI", "").lower() not in {"1", "true", "yes"}:
-            raise RuntimeError("La generación de cuidados no está configurada")
-        return crear_ficha_planta(nombre_cientifico, datos.get("nombreComun"))
+            provider = "Gemini"
+        else:
+            if os.getenv("ENABLE_LOCAL_AI", "").lower() not in {"1", "true", "yes"}:
+                raise RuntimeError("La generación de cuidados no está configurada")
+            result = crear_ficha_planta(nombre_cientifico, datos.get("nombreComun"))
+            provider = "Ollama local"
+        db.add(ApiUsage(user_id=user.id, operation="care_profile", provider=provider))
+        db.commit()
+        return result
     except (ValueError, RuntimeError) as error:
         raise HTTPException(502, str(error)) from error
 
@@ -341,6 +567,7 @@ def diagnosticar(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
+    require_verified_email(db, user)
     imagenes = datos.get("imagenes") or ([datos.get("imagen")] if datos.get("imagen") else [])
     if not imagenes or len(imagenes) > 4:
         raise HTTPException(400, "Selecciona entre 1 y 4 fotografías")
@@ -410,6 +637,10 @@ def user_plants(db: Session = Depends(get_db), user: User = Depends(get_current_
 
 @app.post("/user/plants")
 def add_user_plant(datos: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if db.query(UserPlant).filter(UserPlant.user_id == user.id).count() >= 300:
+        raise HTTPException(429, "Has alcanzado el límite de plantas por cuenta")
+    if not str(datos.get("nombreComun", "")).strip() or not str(datos.get("nombreCientifico", "")).strip():
+        raise HTTPException(400, "La planta necesita nombre común y científico")
     row = UserPlant(user_id=user.id, data=json.dumps(datos, ensure_ascii=False))
     db.add(row)
     db.commit()
@@ -504,6 +735,10 @@ def list_tasks(db: Session = Depends(get_db), user: User = Depends(get_current_u
 def create_task(datos: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if not datos.get("title") or not datos.get("dueDate"):
         raise HTTPException(400, "Título y fecha son obligatorios")
+    try:
+        datetime.strptime(datos["dueDate"], "%Y-%m-%d")
+    except (TypeError, ValueError) as error:
+        raise HTTPException(400, "La fecha no es válida") from error
     row = CustomTask(user_id=user.id, plant_id=datos.get("plantId"), title=datos["title"][:120], task_type=datos.get("type", "inspection"), due_date=datos["dueDate"], recurrence_days=datos.get("recurrenceDays"))
     db.add(row); db.commit(); db.refresh(row)
     return {"id": row.id, "title": row.title, "dueDate": row.due_date, "type": row.task_type}
@@ -520,8 +755,25 @@ def update_task(task_id: int, datos: dict, db: Session = Depends(get_db), user: 
     return {"ok": True}
 
 
+@app.post("/user/feedback")
+def save_feedback(datos: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    feedback_type = datos.get("type")
+    rating = datos.get("rating")
+    if feedback_type not in {"diagnosis", "care", "chat"} or rating not in {-1, 1}:
+        raise HTTPException(400, "Valoración no válida")
+    db.add(UserFeedback(
+        user_id=user.id,
+        feedback_type=feedback_type,
+        reference=str(datos.get("reference", ""))[:120] or None,
+        rating=rating,
+        comment=str(datos.get("comment", ""))[:1000] or None,
+    ))
+    db.commit()
+    return {"ok": True}
+
+
 @app.get("/admin/stats")
 def admin_stats(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     if user.email != os.getenv("ADMIN_EMAIL"):
         raise HTTPException(403, "Acceso restringido")
-    return {"users": db.query(User).count(), "plants": db.query(UserPlant).count(), "diagnoses": db.query(DiagnosisHistory).count(), "usageToday": db.query(ApiUsage).filter(ApiUsage.created_at >= datetime.combine(datetime.utcnow().date(), datetime.min.time())).count()}
+    return {"users": db.query(User).count(), "plants": db.query(UserPlant).count(), "diagnoses": db.query(DiagnosisHistory).count(), "usageToday": db.query(ApiUsage).filter(ApiUsage.created_at >= datetime.combine(datetime.utcnow().date(), datetime.min.time())).count(), "negativeFeedback": db.query(UserFeedback).filter(UserFeedback.rating == -1).count()}

@@ -22,6 +22,12 @@ export const authApi = {
   login: (data) => request("/auth/login", { method: "POST", body: JSON.stringify(data) }),
   me: () => request("/auth/me"),
   logout: () => request("/auth/logout", { method: "POST" }),
+  logoutAll: () => request("/auth/logout-all", { method: "POST" }),
+  changePassword: (currentPassword, newPassword) => request("/auth/change-password", {
+    method: "POST", body: JSON.stringify({ currentPassword, newPassword }),
+  }),
+  resendVerification: () => request("/auth/resend-verification", { method: "POST" }),
+  verifyEmail: (token) => request("/auth/verify-email", { method: "POST", body: JSON.stringify({ token }) }),
   forgotPassword: (email) => request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
   resetPassword: (token, password) => request("/auth/reset-password", { method: "POST", body: JSON.stringify({ token, password }) }),
 };
@@ -34,12 +40,17 @@ export const userDataApi = {
   diagnoses: () => request("/user/diagnoses"),
   settings: () => request("/user/settings"),
   updateSettings: (values) => request("/user/settings", { method: "PATCH", body: JSON.stringify(values) }),
+  exportData: () => request("/user/export"),
+  deleteAccount: (password, confirmation) => request("/user/account", {
+    method: "DELETE", body: JSON.stringify({ password, confirmation }),
+  }),
   careHistory: (plantId) => request(`/user/plants/${plantId}/care`),
   addCare: (plantId, values) => request(`/user/plants/${plantId}/care`, { method: "POST", body: JSON.stringify(values) }),
   dashboard: () => request("/user/dashboard"),
   tasks: () => request("/user/tasks"),
   addTask: (values) => request("/user/tasks", { method: "POST", body: JSON.stringify(values) }),
   updateTask: (id, values) => request(`/user/tasks/${id}`, { method: "PATCH", body: JSON.stringify(values) }),
+  feedback: (values) => request("/user/feedback", { method: "POST", body: JSON.stringify(values) }),
   savePushSubscription: (subscription) => request("/user/push-subscriptions", { method: "POST", body: JSON.stringify(subscription) }),
   uploadPhoto: (file) => {
     const body = new FormData();
@@ -300,6 +311,8 @@ export async function createCareProfile(plant, contexto = {}) {
       humedad: "Moderada",
       temperatura: "18–26 °C",
       toxicidad: "Consulta la especie antes de acercarla a mascotas o niños",
+      confianzaCuidados: "baja",
+      advertencias: "Ficha provisional: actualízala con tus condiciones o consulta una fuente botánica especializada.",
       careProfilePending: true,
     };
   }

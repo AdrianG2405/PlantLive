@@ -119,7 +119,8 @@ Devuelve exclusivamente un objeto JSON válido, sin markdown. Usa estas claves:
 nombreComun, nombreCientifico, categoria, descripcion, luz, ubicacion, sustrato,
 riegoPrimaveraDias, riegoVeranoDias, riegoOtonoDias, riegoInviernoDias,
 riegoIndicador, abonoPrimaveraDias, abonoVeranoDias, abonoOtonoDias,
-abonoInviernoDias, abonoIndicador, fertilizante, humedad, temperatura, toxicidad.
+abonoInviernoDias, abonoIndicador, fertilizante, humedad, temperatura, toxicidad,
+confianzaCuidados ("alta", "media" o "baja"), advertencias.
 
 Los intervalos deben ser enteros realistas para esa especie en maceta y representan
 cuándo revisar el sustrato, no un riego automático. Distingue estaciones del
@@ -151,6 +152,7 @@ humedad, peso de maceta o señal comprobar antes de regar."""
         "riegoInviernoDias", "riegoIndicador", "fertilizante",
         "abonoPrimaveraDias", "abonoVeranoDias", "abonoOtonoDias",
         "abonoInviernoDias", "abonoIndicador",
+        "confianzaCuidados", "advertencias",
     }
     if not isinstance(result, dict) or not required.issubset(result):
         raise RuntimeError("La ficha de cuidados está incompleta")

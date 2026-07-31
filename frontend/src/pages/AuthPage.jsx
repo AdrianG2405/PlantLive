@@ -7,7 +7,7 @@ import { authApi } from "../services/plantliveApi";
 export function AuthPage({ notify }) {
   const { user, authenticate } = useAuth();
   const [mode, setMode] = useState("login");
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", acceptLegal: false });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [recoverySent, setRecoverySent] = useState(false);
@@ -34,7 +34,8 @@ export function AuthPage({ notify }) {
       <p>{mode === "login" ? "Accede a tus plantas y cuidados." : mode === "forgot" ? "Escribe tu email y te enviaremos los pasos para volver a entrar." : "Tus plantas quedarán guardadas en tu perfil."}</p>
       <form onSubmit={submit}>{mode === "register" && <label>Nombre<input required minLength="2" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} placeholder="Tu nombre" /></label>}
         <label>Email<input required type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} placeholder="nombre@email.com" /></label>
-        {mode !== "forgot" && <label>Contraseña<div className="password-field"><input required minLength="8" type={showPassword ? "text" : "password"} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder="Mínimo 8 caracteres" /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></label>}
+        {mode !== "forgot" && <label>Contraseña<div className="password-field"><input required minLength={mode === "register" ? 10 : 8} type={showPassword ? "text" : "password"} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} placeholder={mode === "register" ? "10 caracteres, mayúscula, minúscula y número" : "Tu contraseña"} /><button type="button" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></div></label>}
+        {mode === "register" && <label className="legal-check"><input required type="checkbox" checked={form.acceptLegal} onChange={(event) => setForm({ ...form, acceptLegal: event.target.checked })} /><span>Acepto la <a href="/privacidad" target="_blank">política de privacidad</a> y las <a href="/condiciones" target="_blank">condiciones de uso</a>.</span></label>}
         <button className="primary auth-submit" disabled={loading || recoverySent}>{loading ? <span className="spinner" /> : mode === "login" ? <LogIn size={18} /> : <UserPlus size={18} />}{loading ? "Procesando…" : recoverySent ? "Solicitud enviada" : mode === "login" ? "Entrar" : mode === "forgot" ? "Recuperar acceso" : "Crear cuenta"}</button>
       </form>
       {mode === "login" && <button className="auth-switch" onClick={() => { setMode("forgot"); setRecoverySent(false); }}>He olvidado mi contraseña</button>}

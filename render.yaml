@@ -5,7 +5,7 @@ services:
     plan: free
     buildCommand: pip install -r backend/requirements.txt
     startCommand: uvicorn main:app --app-dir backend --host 0.0.0.0 --port $PORT
-    healthCheckPath: /health
+    healthCheckPath: /ready
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.10
@@ -41,5 +41,9 @@ services:
         sync: false
       - key: DAILY_DIAGNOSIS_LIMIT
         value: "20"
+      - key: DAILY_CHAT_LIMIT
+        value: "40"
+      - key: DAILY_CARE_PROFILE_LIMIT
+        value: "30"
       - key: CRON_SECRET
         generateValue: true
