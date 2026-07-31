@@ -79,6 +79,7 @@ class UserSettings(Base):
     user_id = Column(Integer, nullable=False, unique=True, index=True)
     timezone = Column(String(80), default="Europe/Madrid", nullable=False)
     reminder_hour = Column(Integer, default=9, nullable=False)
+    reminder_minute = Column(Integer, default=0, nullable=False)
     email_notifications = Column(Boolean, default=False, nullable=False)
     push_notifications = Column(Boolean, default=True, nullable=False)
     ai_consent = Column(Boolean, default=False, nullable=False)

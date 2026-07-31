@@ -166,6 +166,8 @@ body{background:radial-gradient(circle at 10% 5%,#eef8e8 0,transparent 24%),#f7f
   footer span{font-size:11px;line-height:1.6}
 }
 
+.setting-inline input[type="time"]{width:110px}
+
 /* Mobile keeps the same header and photographic hero as desktop */
 @media(max-width:700px){
   body{padding-bottom:calc(72px + env(safe-area-inset-bottom))}

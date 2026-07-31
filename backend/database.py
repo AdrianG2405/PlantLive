@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 DEFAULT_DB = Path(__file__).with_name("plantlive.db").as_posix()
@@ -24,6 +24,19 @@ SessionLocal = sessionmaker(
 )
 
 Base = declarative_base()
+
+
+def apply_compatible_schema_updates() -> None:
+    """Añade columnas compatibles a bases creadas antes de una actualización."""
+    inspector = inspect(engine)
+    if not inspector.has_table("user_settings"):
+        return
+    columns = {column["name"] for column in inspector.get_columns("user_settings")}
+    if "reminder_minute" not in columns:
+        with engine.begin() as connection:
+            connection.execute(text(
+                "ALTER TABLE user_settings ADD COLUMN reminder_minute INTEGER NOT NULL DEFAULT 0"
+            ))
 
 
 def get_db():

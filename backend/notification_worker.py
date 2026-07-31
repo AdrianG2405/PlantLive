@@ -49,7 +49,9 @@ def run_once() -> int:
                 local_now = now_utc.astimezone(ZoneInfo(settings.timezone))
             except Exception:
                 local_now = now_utc.astimezone(ZoneInfo("Europe/Madrid"))
-            if local_now.hour != settings.reminder_hour:
+            current_minutes = local_now.hour * 60 + local_now.minute
+            preferred_minutes = settings.reminder_hour * 60 + settings.reminder_minute
+            if current_minutes < preferred_minutes:
                 continue
             user = db.query(User).filter(User.id == settings.user_id).first()
             if not user:

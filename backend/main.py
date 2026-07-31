@@ -24,7 +24,7 @@ logger = logging.getLogger("plantlive")
 
 from ai_service import buscar_plantas_con_ia, crear_ficha_planta, diagnosticar_imagen, preguntar_a_plantlive
 from auth import create_session, get_current_user, hash_password, verify_password
-from database import Base, engine, get_db
+from database import Base, apply_compatible_schema_updates, engine, get_db
 from hybrid_ai_service import advanced_ai_configured, crear_ficha_avanzada, diagnosticar_avanzado, gemini_configured, preguntar_avanzado
 from models import ApiUsage, AuthSession, CareEvent, CustomTask, DiagnosisHistory, EmailVerificationToken, LegalAcceptance, NotificationDelivery, PasswordResetToken, Planta, PushSubscription, User, UserFeedback, UserPlant, UserSettings
 from storage_service import UPLOAD_DIR, delete_plant_photo, save_plant_photo
@@ -32,6 +32,7 @@ from email_service import send_email_verification, send_password_reset
 from notification_worker import run_once as send_due_notifications
 
 Base.metadata.create_all(bind=engine)
+apply_compatible_schema_updates()
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 app = FastAPI(title="PlantLive API", version="2.0.0")
@@ -230,6 +231,7 @@ def get_settings(db: Session = Depends(get_db), user: User = Depends(get_current
     return {
         "timezone": item.timezone,
         "reminderHour": item.reminder_hour,
+        "reminderMinute": item.reminder_minute,
         "emailNotifications": item.email_notifications,
         "pushNotifications": item.push_notifications,
         "aiConsent": item.ai_consent,
@@ -246,8 +248,10 @@ def update_settings(datos: dict, db: Session = Depends(get_db), user: User = Dep
             raise HTTPException(400, "Zona horaria no válida") from error
     if "reminderHour" in datos and not 0 <= int(datos["reminderHour"]) <= 23:
         raise HTTPException(400, "La hora debe estar entre 0 y 23")
+    if "reminderMinute" in datos and not 0 <= int(datos["reminderMinute"]) <= 59:
+        raise HTTPException(400, "Los minutos deben estar entre 0 y 59")
     mappings = {
-        "timezone": "timezone", "reminderHour": "reminder_hour",
+        "timezone": "timezone", "reminderHour": "reminder_hour", "reminderMinute": "reminder_minute",
         "emailNotifications": "email_notifications",
         "pushNotifications": "push_notifications", "aiConsent": "ai_consent",
     }

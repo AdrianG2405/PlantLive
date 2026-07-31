@@ -50,7 +50,7 @@ export function SettingsPage({ notify }) {
   return <><section className="page-banner"><span className="kicker">TU CUENTA</span><h1>Ajustes y privacidad</h1><p>Decide cómo y cuándo quieres que PlantLive te ayude.</p></section>
     <section className="section settings-page"><div className="settings-card"><h2><Bell size={21} /> Recordatorios</h2>
       <label>Zona horaria<select value={settings.timezone} onChange={(event) => setSettings({ ...settings, timezone: event.target.value })}><option>Europe/Madrid</option><option>Europe/London</option><option>America/New_York</option><option>America/Mexico_City</option><option>America/Argentina/Buenos_Aires</option></select></label>
-      <label>Hora preferida<div className="setting-inline"><Clock size={17} /><input type="number" min="0" max="23" value={settings.reminderHour} onChange={(event) => setSettings({ ...settings, reminderHour: Number(event.target.value) })} />:00</div></label>
+      <label>Hora preferida<div className="setting-inline"><Clock size={17} /><input type="time" value={`${String(settings.reminderHour).padStart(2, "0")}:${String(settings.reminderMinute ?? 0).padStart(2, "0")}`} onChange={(event) => { const [hour, minute] = event.target.value.split(":").map(Number); setSettings({ ...settings, reminderHour: hour, reminderMinute: minute }); }} /></div></label>
       <Toggle label="Notificaciones emergentes" checked={settings.pushNotifications} onChange={(value) => setSettings({ ...settings, pushNotifications: value })} />
       <Toggle label="Notificaciones por correo electrónico" checked={settings.emailNotifications} onChange={(value) => setSettings({ ...settings, emailNotifications: value })} />
     </div>
