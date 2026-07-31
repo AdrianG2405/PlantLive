@@ -712,15 +712,31 @@ def diagnosis_history(db: Session = Depends(get_db), user: User = Depends(get_cu
 def dashboard(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     today = datetime.utcnow().date().isoformat()
     plants = db.query(UserPlant).filter(UserPlant.user_id == user.id).all()
-    due = []
+    schedule = []
+    plant_names = {}
     for row in plants:
         data = json.loads(row.data)
+        plant_names[row.id] = data.get("nickname") or data.get("nombreComun") or "Tu planta"
         for field, label in (("nextWater", "Riego"), ("nextFeed", "Abonado")):
-            if data.get(field) and data[field] <= today:
-                due.append({"plantId": row.id, "plant": data.get("nickname") or data.get("nombreComun"), "type": label, "date": data[field]})
+            if data.get(field):
+                schedule.append({"plantId": row.id, "plant": plant_names[row.id], "type": label, "date": data[field]})
+    tasks = db.query(CustomTask).filter(
+        CustomTask.user_id == user.id,
+        CustomTask.completed.is_(False),
+    ).all()
+    for task in tasks:
+        schedule.append({
+            "plantId": task.plant_id,
+            "plant": plant_names.get(task.plant_id, "Tarea general"),
+            "type": task.title,
+            "date": task.due_date,
+        })
+    schedule.sort(key=lambda item: item["date"])
+    due = [item for item in schedule if item["date"] <= today]
+    upcoming = [item for item in schedule if item["date"] > today]
     diagnoses = db.query(DiagnosisHistory).filter(DiagnosisHistory.user_id == user.id).count()
     care = db.query(CareEvent).filter(CareEvent.user_id == user.id).count()
-    return {"name": user.name, "plantCount": len(plants), "diagnosisCount": diagnoses, "careCount": care, "due": due[:8]}
+    return {"name": user.name, "plantCount": len(plants), "diagnosisCount": diagnoses, "careCount": care, "due": due[:8], "upcoming": upcoming[:8]}
 
 
 @app.get("/user/tasks")
