@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { userDataApi } from "../services/plantliveApi";
 
 export function CalendarPage({ upcoming, plants, notify }) {
   const [tasks, setTasks] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(null);
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -27,6 +28,7 @@ export function CalendarPage({ upcoming, plants, notify }) {
   const monthEvents = events.filter((item) => item.date?.startsWith(monthKey));
   const monthTasks = tasks.filter((task) => !task.completed && task.dueDate?.startsWith(monthKey));
   const monthLabel = visibleMonth.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+  const selectedEvents = selectedDate ? events.filter((item) => item.date === selectedDate) : [];
 
   const changeMonth = (offset) => setVisibleMonth((current) =>
     new Date(current.getFullYear(), current.getMonth() + offset, 1));
@@ -47,7 +49,12 @@ export function CalendarPage({ upcoming, plants, notify }) {
   return <><section className="page-banner"><span className="kicker">PLANIFICACIÓN</span><h1>Calendario de cuidados</h1><p>Riegos, abonados y tareas personalizadas en un solo lugar.</p></section><section className="section calendar-page">
     <form className="task-form" onSubmit={add}><input required placeholder="Nueva tarea: podar, trasplantar…" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /><input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} /><select value={form.plantId} onChange={(event) => setForm({ ...form, plantId: event.target.value })}><option value="">General</option>{plants.map((plant) => <option key={plant.serverId} value={plant.serverId}>{plant.nickname}</option>)}</select><button className="primary"><Plus size={17} /> Añadir</button></form>
     <div className="calendar-month-nav"><button type="button" onClick={() => changeMonth(-1)} aria-label="Mes anterior"><ChevronLeft size={20} /></button><h2>{monthLabel}</h2><button type="button" onClick={() => changeMonth(1)} aria-label="Mes siguiente"><ChevronRight size={20} /></button><button type="button" className="calendar-today" onClick={showToday}>Hoy</button></div>
-    <div className="month-grid"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>{days.map((day, index) => <article key={`${monthKey}-${index}`} className={!day ? "blank-day" : ""}>{day && <><b>{day}</b>{monthEvents.filter((item) => Number(item.date?.slice(8, 10)) === day).slice(0, 3).map((item, eventIndex) => <small key={`${item.id || item.title}-${eventIndex}`}>{item.icon || "•"} {item.title}</small>)}</>}</article>)}</div>
+    <div className="month-grid"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>{days.map((day, index) => {
+      const date = day ? `${monthKey}-${String(day).padStart(2, "0")}` : null;
+      const dayEvents = date ? monthEvents.filter((item) => item.date === date) : [];
+      return <article key={`${monthKey}-${index}`} className={`${!day ? "blank-day" : ""} ${selectedDate === date ? "selected-day" : ""} ${dayEvents.length ? "has-events" : ""}`}>{day && <button type="button" className="calendar-day-button" onClick={() => setSelectedDate(date)} aria-label={`Ver planificación del ${day} de ${monthLabel}`}><b>{day}</b>{dayEvents.slice(0, 3).map((item, eventIndex) => <small key={`${item.id || item.title}-${eventIndex}`}>{item.icon || "•"} {item.title}</small>)}</button>}</article>;
+    })}</div>
     <div className="task-list">{monthTasks.map((task) => <div key={task.id}><span>{task.dueDate} · {task.title}</span><button onClick={async () => { await userDataApi.updateTask(task.id, { completed: true }); load(); }}><Check size={16} /> Hecho</button></div>)}</div>
+    {selectedDate && <div className="calendar-detail-backdrop" onClick={() => setSelectedDate(null)}><section className="calendar-day-detail" onClick={(event) => event.stopPropagation()}><button className="calendar-detail-close" onClick={() => setSelectedDate(null)} aria-label="Cerrar"><X size={20} /></button><span className="kicker">PLANIFICACIÓN DEL DÍA</span><h2>{new Date(`${selectedDate}T12:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}</h2>{selectedEvents.length ? <div className="calendar-detail-events">{selectedEvents.map((item, index) => <article key={`${item.id || item.title}-${index}`}><span>{item.icon || "•"}</span><div><b>{item.title}</b><small>{item.plant || "Tarea programada"}</small></div></article>)}</div> : <p>No hay cuidados programados para este día.</p>}</section></div>}
   </section></>;
 }
