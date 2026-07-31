@@ -137,7 +137,7 @@ def trigger_reminders(x_cron_secret: str | None = Header(default=None)):
     expected = os.getenv("CRON_SECRET")
     if not expected or not secrets.compare_digest(x_cron_secret or "", expected):
         raise HTTPException(403, "Acceso no permitido")
-    return {"sent": send_due_notifications()}
+    return send_due_notifications()
 
 
 def is_email_verified(db: Session, user_id: int) -> bool:

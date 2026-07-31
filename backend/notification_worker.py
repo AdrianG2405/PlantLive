@@ -1,16 +1,19 @@
 """Envía recordatorios respetando hora local y evitando duplicados."""
 import json
+import logging
 import os
 import smtplib
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from zoneinfo import ZoneInfo
 
-from pywebpush import WebPushException, webpush
+from pywebpush import webpush
 
 from database import SessionLocal
 from email_service import send_email as send_resend_email
 from models import CustomTask, NotificationDelivery, PushSubscription, User, UserPlant, UserSettings
+
+logger = logging.getLogger("plantlive.notifications")
 
 
 def send_push(subscription: PushSubscription, title: str, body: str) -> None:
@@ -40,8 +43,8 @@ def send_email(user: User, title: str, body: str) -> bool:
     return True
 
 
-def run_once() -> int:
-    db, sent = SessionLocal(), 0
+def run_once() -> dict[str, int]:
+    db, sent, failed = SessionLocal(), 0, 0
     try:
         now_utc = datetime.now(timezone.utc)
         for settings in db.query(UserSettings).all():
@@ -50,7 +53,7 @@ def run_once() -> int:
             except Exception:
                 local_now = now_utc.astimezone(ZoneInfo("Europe/Madrid"))
             current_minutes = local_now.hour * 60 + local_now.minute
-            preferred_minutes = settings.reminder_hour * 60 + settings.reminder_minute
+            preferred_minutes = settings.reminder_hour * 60 + (settings.reminder_minute or 0)
             if current_minutes < preferred_minutes:
                 continue
             user = db.query(User).filter(User.id == settings.user_id).first()
@@ -65,7 +68,12 @@ def run_once() -> int:
             ).all()
             reminders.extend((f"task:{task.id}", task.title) for task in tasks)
             for plant in db.query(UserPlant).filter(UserPlant.user_id == user.id).all():
-                data = json.loads(plant.data)
+                try:
+                    data = json.loads(plant.data)
+                except (TypeError, json.JSONDecodeError):
+                    failed += 1
+                    logger.exception("Datos inválidos en la planta %s", plant.id)
+                    continue
                 name = data.get("nickname") or data.get("nombreComun") or "Tu planta"
                 if data.get("nextWater") and data["nextWater"] <= today:
                     reminders.append((f"water:{plant.id}:{data['nextWater']}", f"Revisa el riego de {name}"))
@@ -85,18 +93,25 @@ def run_once() -> int:
                             send_push(subscription, title, reminder)
                             sent += 1
                             delivered_now = True
-                        except WebPushException:
+                        except Exception:
+                            failed += 1
+                            logger.exception("No se pudo enviar el aviso push de la suscripción %s", subscription.id)
                             continue
-                if settings.email_notifications and send_email(user, title, reminder):
-                    sent += 1
-                    delivered_now = True
+                if settings.email_notifications:
+                    try:
+                        if send_email(user, title, reminder):
+                            sent += 1
+                            delivered_now = True
+                    except Exception:
+                        failed += 1
+                        logger.exception("No se pudo enviar el recordatorio por correo al usuario %s", user.id)
                 if delivered_now:
                     db.add(NotificationDelivery(user_id=user.id, reminder_key=reminder_key, sent_on=today))
             db.commit()
-        return sent
+        return {"sent": sent, "failed": failed}
     finally:
         db.close()
 
 
 if __name__ == "__main__":
-    print(f"{run_once()} notificaciones enviadas")
+    print(json.dumps(run_once()))
