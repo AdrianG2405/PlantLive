@@ -6,7 +6,7 @@ export function Header() {
   const { user, logout } = useAuth();
   const active = ({ isActive }) => isActive ? "active" : "";
   return <><header className="topbar">
-    <NavLink className="brand" to="/"><span><Sprout size={21} /></span> PlantLive</NavLink>
+    <NavLink className="brand" to="/"><span><Sprout size={21} /></span> PlantLive <small className="beta-badge">BETA</small></NavLink>
     <nav className="desktop-nav">
       <NavLink className={active} end to="/"><Search size={16} /> <span>Explorar</span></NavLink>
       {user && <NavLink className={active} to="/panel"><LayoutDashboard size={16} /> <span>Panel</span></NavLink>}
