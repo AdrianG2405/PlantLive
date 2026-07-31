@@ -52,6 +52,7 @@ export const userDataApi = {
   updateTask: (id, values) => request(`/user/tasks/${id}`, { method: "PATCH", body: JSON.stringify(values) }),
   feedback: (values) => request("/user/feedback", { method: "POST", body: JSON.stringify(values) }),
   savePushSubscription: (subscription) => request("/user/push-subscriptions", { method: "POST", body: JSON.stringify(subscription) }),
+  testNotification: () => request("/user/test-notification", { method: "POST" }),
   uploadPhoto: (file) => {
     const body = new FormData();
     body.append("file", file);

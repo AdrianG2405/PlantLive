@@ -43,6 +43,26 @@ def send_email(user: User, title: str, body: str) -> bool:
     return True
 
 
+def send_test_push(user_id: int) -> dict[str, int]:
+    db, sent, failed = SessionLocal(), 0, 0
+    try:
+        subscriptions = db.query(PushSubscription).filter(PushSubscription.user_id == user_id).all()
+        for subscription in subscriptions:
+            try:
+                send_push(
+                    subscription,
+                    "PlantLive · Notificación de prueba",
+                    "Los avisos están conectados correctamente.",
+                )
+                sent += 1
+            except Exception:
+                failed += 1
+                logger.exception("Falló la prueba push de la suscripción %s", subscription.id)
+        return {"sent": sent, "failed": failed, "subscriptions": len(subscriptions)}
+    finally:
+        db.close()
+
+
 def run_once() -> dict[str, int]:
     db, sent, failed = SessionLocal(), 0, 0
     try:

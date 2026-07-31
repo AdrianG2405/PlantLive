@@ -29,7 +29,7 @@ from hybrid_ai_service import advanced_ai_configured, crear_ficha_avanzada, diag
 from models import ApiUsage, AuthSession, CareEvent, CustomTask, DiagnosisHistory, EmailVerificationToken, LegalAcceptance, NotificationDelivery, PasswordResetToken, Planta, PushSubscription, User, UserFeedback, UserPlant, UserSettings
 from storage_service import UPLOAD_DIR, delete_plant_photo, save_plant_photo
 from email_service import send_email_verification, send_password_reset
-from notification_worker import run_once as send_due_notifications
+from notification_worker import run_once as send_due_notifications, send_test_push
 
 Base.metadata.create_all(bind=engine)
 apply_compatible_schema_updates()
@@ -444,6 +444,16 @@ def save_push_subscription(datos: dict, db: Session = Depends(get_db), user: Use
         db.add(PushSubscription(user_id=user.id, endpoint=datos["endpoint"], p256dh=keys["p256dh"], auth=keys["auth"]))
     db.commit()
     return {"ok": True}
+
+
+@app.post("/user/test-notification")
+def test_notification(user: User = Depends(get_current_user)):
+    result = send_test_push(user.id)
+    if not result["subscriptions"]:
+        raise HTTPException(409, "No hay ningún dispositivo conectado. Activa los avisos en Mis plantas.")
+    if not result["sent"]:
+        raise HTTPException(502, "La notificación no pudo enviarse. Revisa las claves VAPID.")
+    return result
 
 
 @app.post("/user/photos")
