@@ -9,8 +9,8 @@ jobs:
   backend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -24,12 +24,14 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
+      # npm install tolerates optional native packages (Rolldown) better on
+      # fresh GitHub runners while still respecting package-lock.json.
+      - run: npm install --no-audit --no-fund
       - run: npm run lint
       - run: npm run build
