@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 
-const owner = import.meta.env.VITE_LEGAL_OWNER || "RESPONSABLE PENDIENTE DE CONFIGURAR";
+const owner = import.meta.env.VITE_LEGAL_OWNER || "Adrián Gómez Núñez";
 const contact = import.meta.env.VITE_CONTACT_EMAIL || "plantlivesupport@gmail.com";
 const address = import.meta.env.VITE_LEGAL_ADDRESS?.trim();
 
