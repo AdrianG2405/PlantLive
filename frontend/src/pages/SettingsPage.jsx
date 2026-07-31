@@ -8,7 +8,6 @@ export function SettingsPage({ notify }) {
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
   const [testingNotification, setTestingNotification] = useState(false);
-  const [testingEmail, setTestingEmail] = useState(false);
   const [passwords, setPasswords] = useState({ current: "", next: "" });
   const [deletion, setDeletion] = useState({ password: "", confirmation: "" });
   useEffect(() => { userDataApi.settings().then(setSettings).catch((error) => notify(error.message)); }, [notify]);
@@ -28,17 +27,6 @@ export function SettingsPage({ notify }) {
       notify(error.message);
     } finally {
       setTestingNotification(false);
-    }
-  };
-  const testEmail = async () => {
-    setTestingEmail(true);
-    try {
-      const result = await userDataApi.testEmail();
-      notify(`Correo de prueba enviado a ${result.email}.`);
-    } catch (error) {
-      notify(error.message);
-    } finally {
-      setTestingEmail(false);
     }
   };
   const changePassword = async (event) => {
@@ -76,9 +64,7 @@ export function SettingsPage({ notify }) {
       <label>Zona horaria<select value={settings.timezone} onChange={(event) => setSettings({ ...settings, timezone: event.target.value })}><option>Europe/Madrid</option><option>Europe/London</option><option>America/New_York</option><option>America/Mexico_City</option><option>America/Argentina/Buenos_Aires</option></select></label>
       <label>Hora preferida<div className="setting-inline"><Clock size={17} /><input type="time" value={`${String(settings.reminderHour).padStart(2, "0")}:${String(settings.reminderMinute ?? 0).padStart(2, "0")}`} onChange={(event) => { const [hour, minute] = event.target.value.split(":").map(Number); setSettings({ ...settings, reminderHour: hour, reminderMinute: minute }); }} /></div></label>
       <Toggle label="Notificaciones emergentes" checked={settings.pushNotifications} onChange={(value) => setSettings({ ...settings, pushNotifications: value })} />
-      <Toggle label="Notificaciones por correo electrónico" checked={settings.emailNotifications} onChange={(value) => setSettings({ ...settings, emailNotifications: value })} />
       <button type="button" className="secondary-action" onClick={testNotification} disabled={testingNotification}><Bell size={17} /> {testingNotification ? "Enviando prueba…" : "Enviar notificación de prueba"}</button>
-      <button type="button" className="secondary-action" onClick={testEmail} disabled={testingEmail}><Bell size={17} /> {testingEmail ? "Enviando correo…" : "Enviar correo de prueba"}</button>
     </div>
     <div className="settings-card"><h2><Brain size={21} /> Inteligencia artificial</h2><div className="consent-copy"><ShieldCheck size={24} /><p>El modo avanzado envía la fotografía a proveedores tecnológicos especializados. Actívalo solo si aceptas este procesamiento externo; encontrarás el detalle en la política de privacidad.</p></div>
       <Toggle label="Acepto el análisis mediante servicios externos" checked={settings.aiConsent} onChange={(value) => setSettings({ ...settings, aiConsent: value })} />

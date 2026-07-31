@@ -53,7 +53,6 @@ export const userDataApi = {
   feedback: (values) => request("/user/feedback", { method: "POST", body: JSON.stringify(values) }),
   savePushSubscription: (subscription) => request("/user/push-subscriptions", { method: "POST", body: JSON.stringify(subscription) }),
   testNotification: () => request("/user/test-notification", { method: "POST" }),
-  testEmail: () => request("/user/test-email", { method: "POST" }),
   uploadPhoto: (file) => {
     const body = new FormData();
     body.append("file", file);

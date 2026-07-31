@@ -21,6 +21,7 @@ export function Header() {
   <nav className="mobile-nav" aria-label="Navegación principal">
     <NavLink className={active} end to="/"><Search size={20} /><span>Explorar</span></NavLink>
     <NavLink className={active} to="/plantas"><Leaf size={20} /><span>Mis plantas</span></NavLink>
+    {user && <NavLink className={active} to="/calendario"><CalendarDays size={20} /><span>Calendario</span></NavLink>}
     <NavLink className={active} to="/diagnostico"><HeartPulse size={21} /><span>Diagnóstico</span></NavLink>
     <NavLink className={active} to={user ? "/panel" : "/sobre-nosotros"}>{user ? <LayoutDashboard size={20} /> : <Users size={20} />}<span>{user ? "Mi panel" : "Nosotros"}</span></NavLink>
   </nav></>;
