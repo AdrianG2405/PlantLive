@@ -10,6 +10,7 @@ const toUint8Array = (value) => {
 export function useCareNotifications(upcoming, enabled) {
   const supported = "Notification" in window;
   const [permission, setPermission] = useState(supported ? Notification.permission : "unsupported");
+  const [subscriptionStatus, setSubscriptionStatus] = useState("idle");
 
   const check = useCallback(() => {
     if (!enabled || !supported || Notification.permission !== "granted") return;
@@ -32,22 +33,44 @@ export function useCareNotifications(upcoming, enabled) {
     return () => window.clearInterval(timer);
   }, [check]);
 
+  const syncPushSubscription = useCallback(async () => {
+    if (!enabled || !supported || Notification.permission !== "granted") return false;
+    const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY?.trim();
+    if (!vapidKey) throw new Error("Falta configurar VITE_VAPID_PUBLIC_KEY en Vercel.");
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      throw new Error("Este navegador no admite notificaciones push.");
+    }
+    setSubscriptionStatus("syncing");
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: toUint8Array(vapidKey),
+      });
+    }
+    await userDataApi.savePushSubscription(subscription.toJSON());
+    setSubscriptionStatus("active");
+    return true;
+  }, [enabled, supported]);
+
+  useEffect(() => {
+    if (!enabled || permission !== "granted") {
+      setSubscriptionStatus("idle");
+      return;
+    }
+    syncPushSubscription().catch(() => setSubscriptionStatus("error"));
+  }, [enabled, permission, syncPushSubscription]);
+
   const requestPermission = async () => {
     if (!supported) return "unsupported";
     const result = await Notification.requestPermission();
     setPermission(result);
     if (result === "granted") {
       check();
-      const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-      if (vapidKey && "serviceWorker" in navigator) {
-        const registration = await navigator.serviceWorker.ready;
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true, applicationServerKey: toUint8Array(vapidKey),
-        });
-        await userDataApi.savePushSubscription(subscription.toJSON());
-      }
+      await syncPushSubscription();
     }
     return result;
   };
-  return { permission, requestPermission };
+  return { permission, requestPermission, subscriptionStatus };
 }

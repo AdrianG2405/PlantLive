@@ -25,8 +25,12 @@ export function MyPlantsPage({
       navigate("/acceso", { state: { from: "/plantas" } });
       return;
     }
-    const result = await notifications.requestPermission();
-    notify(result === "granted" ? "Notificaciones activadas." : "El navegador no permitió las notificaciones.");
+    try {
+      const result = await notifications.requestPermission();
+      notify(result === "granted" ? "Notificaciones activadas y conectadas." : "El navegador no permitió las notificaciones.");
+    } catch (error) {
+      notify(error.message || "No se pudieron activar las notificaciones.");
+    }
   };
 
   return <div className="garden-page">
@@ -52,7 +56,7 @@ export function MyPlantsPage({
     <section className="section garden-collection">
       <div className="garden-toolbar"><div><span className="kicker">MI COLECCIÓN</span><h2>Todas mis plantas <sup>{plants.length}</sup></h2></div><div className="garden-tools">
         {!!plants.length && <label className="garden-search"><Search size={17} /><input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Buscar en mi jardín" /></label>}
-        {authenticated && notifications.permission === "granted" ? <span className="notifications-on"><BellRing size={16} /> Avisos activos</span> : <button className="notification-button" onClick={activateNotifications}><Bell size={17} /> Activar avisos</button>}
+        {authenticated && notifications.subscriptionStatus === "active" ? <span className="notifications-on"><BellRing size={16} /> Avisos activos</span> : <button className="notification-button" onClick={activateNotifications} disabled={notifications.subscriptionStatus === "syncing"}><Bell size={17} /> {notifications.subscriptionStatus === "syncing" ? "Conectando avisos…" : notifications.permission === "granted" ? "Reintentar avisos" : "Activar avisos"}</button>}
       </div></div>
 
       {loadingPlants ? <div className="route-loading"><span className="spinner dark-spinner" /> Cargando tu jardín…</div> :
