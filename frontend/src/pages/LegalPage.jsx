@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 
 const owner = import.meta.env.VITE_LEGAL_OWNER || "RESPONSABLE PENDIENTE DE CONFIGURAR";
-const contact = import.meta.env.VITE_CONTACT_EMAIL || "CONTACTO PENDIENTE DE CONFIGURAR";
+const contact = import.meta.env.VITE_CONTACT_EMAIL || "plantlivesupport@gmail.com";
 const address = import.meta.env.VITE_LEGAL_ADDRESS || "DOMICILIO PENDIENTE DE CONFIGURAR";
 
 export function LegalPage() {

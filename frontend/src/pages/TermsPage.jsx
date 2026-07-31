@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 
 const owner = import.meta.env.VITE_LEGAL_OWNER || "RESPONSABLE PENDIENTE DE CONFIGURAR";
-const contact = import.meta.env.VITE_CONTACT_EMAIL || "CONTACTO PENDIENTE DE CONFIGURAR";
+const contact = import.meta.env.VITE_CONTACT_EMAIL || "plantlivesupport@gmail.com";
 
 export function TermsPage() {
   return <section className="section legal-page"><span className="kicker">CONDICIONES DE USO</span><h1>Condiciones de PlantLive</h1><p><b>Última actualización:</b> 31 de julio de 2026.</p>

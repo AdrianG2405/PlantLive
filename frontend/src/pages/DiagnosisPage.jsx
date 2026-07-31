@@ -9,7 +9,6 @@ export function DiagnosisPage({ plants, addPlant, notify, authenticated }) {
   const [symptoms, setSymptoms] = useState("");
   const [plantId, setPlantId] = useState("");
   const [diagnosis, setDiagnosis] = useState("");
-  const [provider, setProvider] = useState("");
   const [identifiedPlant, setIdentifiedPlant] = useState(null);
   const [addingPlant, setAddingPlant] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
@@ -58,12 +57,11 @@ export function DiagnosisPage({ plants, addPlant, notify, authenticated }) {
     }
     if (!aiConsent) return notify("Acepta el análisis externo debajo de las fotografías para continuar.");
     if (!photos.length) return notify("Selecciona al menos una fotografía.");
-    setLoading(true); setDiagnosis(""); setProvider(""); setIdentifiedPlant(null); setFeedbackSent(false);
+    setLoading(true); setDiagnosis(""); setIdentifiedPlant(null); setFeedbackSent(false);
     try {
       const plant = plants.find((item) => item.instanceId === plantId);
       const data = await diagnosePlant({ imagenes: photos, sintomas: symptoms, planta: plant?.nombreCientifico });
       setDiagnosis(data.respuesta);
-      setProvider(data.provider || "");
       if (data.identifiedPlant?.nombreCientifico) setIdentifiedPlant(data.identifiedPlant);
       loadHistory();
     } catch (error) { notify(error.message); }
@@ -129,13 +127,13 @@ export function DiagnosisPage({ plants, addPlant, notify, authenticated }) {
       {!!photos.length && <div className="diagnosis-photos">{photos.map((item, index) => <button key={index} onClick={() => setPhotos(photos.filter((_, photoIndex) => photoIndex !== index))}><img src={item} alt={`Vista ${index + 1}`} /><span>×</span></button>)}</div>}
       <select value={plantId} onChange={(event) => setPlantId(event.target.value)}><option value="">No sé qué planta es — identificar con la foto</option>{plants.map((plant) => <option key={plant.instanceId} value={plant.instanceId}>{plant.nickname}</option>)}</select>
       <textarea value={symptoms} onChange={(event) => setSymptoms(event.target.value)} placeholder="¿Qué has observado? ¿Desde cuándo? ¿Cada cuánto riegas?" />
-      <label className="diagnosis-consent"><input type="checkbox" checked={aiConsent} disabled={!authenticated} onChange={(event) => changeConsent(event.target.checked)} /><span><b>Acepto el análisis externo de estas fotografías</b><small>Plant.id y Gemini las procesarán para identificar la especie y orientar el diagnóstico. No se guardan en el historial.</small></span></label>
+      <label className="diagnosis-consent"><input type="checkbox" checked={aiConsent} disabled={!authenticated} onChange={(event) => changeConsent(event.target.checked)} /><span><b>Acepto el análisis externo de estas fotografías</b><small>Proveedores tecnológicos especializados las procesarán para identificar la especie y orientar el diagnóstico. La fotografía no se guarda en el historial.</small></span></label>
       <button className="primary diagnosis-button" onClick={diagnose} disabled={loading}>{loading ? <><span className="spinner" /> Identificando y analizando…</> : <><ScanSearch size={19} /> Analizar con IA</>}</button>
       {loading && <div className="analysis-progress"><Sparkles size={18} /><div><b>PlantLive está observando la imagen</b><small>Identificando especie, síntomas y posibles cuidados…</small></div></div>}
-      {diagnosis && <div className="diagnosis-result structured-result"><div className="diagnosis-result-head"><span className="result-icon"><Sparkles size={19} /></span><div><b>Orientación de PlantLive</b><small>Análisis visual · {provider}</small></div></div><div className="diagnosis-sections">{sections.map((section) => <article key={section.title} className={section.tone}><span>{section.icon}</span><div><h3>{section.title}</h3><p>{section.text}</p></div></article>)}</div>{identifiedPlant?.nombreCientifico && <button className="primary identified-add-button" onClick={addIdentifiedPlant} disabled={addingPlant}><Plus size={17} /> {addingPlant ? "Preparando ficha…" : `Añadir ${identifiedPlant.nombreComun || "esta planta"} a Mis plantas`}</button>}<button className="followup-button" onClick={scheduleReview}><CalendarPlus size={16} /> Revisar evolución en 7 días</button>{feedbackSent ? <div className="feedback-thanks">Valoración enviada</div> : <div className="diagnosis-feedback"><span>¿Te ha resultado útil?</span><button onClick={() => rateDiagnosis(1)} aria-label="Sí, fue útil"><ThumbsUp size={15} /></button><button onClick={() => rateDiagnosis(-1)} aria-label="No fue útil"><ThumbsDown size={15} /></button></div>}<small className="diagnosis-disclaimer">Orientación basada en fotografías; no sustituye una inspección profesional.</small></div>}
+      {diagnosis && <div className="diagnosis-result structured-result"><div className="diagnosis-result-head"><span className="result-icon"><Sparkles size={19} /></span><div><b>Orientación de PlantLive</b><small>Análisis visual avanzado</small></div></div><div className="diagnosis-sections">{sections.map((section) => <article key={section.title} className={section.tone}><span>{section.icon}</span><div><h3>{section.title}</h3><p>{section.text}</p></div></article>)}</div>{identifiedPlant?.nombreCientifico && <button className="primary identified-add-button" onClick={addIdentifiedPlant} disabled={addingPlant}><Plus size={17} /> {addingPlant ? "Preparando ficha…" : `Añadir ${identifiedPlant.nombreComun || "esta planta"} a Mis plantas`}</button>}<button className="followup-button" onClick={scheduleReview}><CalendarPlus size={16} /> Revisar evolución en 7 días</button>{feedbackSent ? <div className="feedback-thanks">Valoración enviada</div> : <div className="diagnosis-feedback"><span>¿Te ha resultado útil?</span><button onClick={() => rateDiagnosis(1)} aria-label="Sí, fue útil"><ThumbsUp size={15} /></button><button onClick={() => rateDiagnosis(-1)} aria-label="No fue útil"><ThumbsDown size={15} /></button></div>}<small className="diagnosis-disclaimer">Orientación basada en fotografías; no sustituye una inspección profesional.</small></div>}
     </div></section>
     <section className="section diagnosis-history"><div className="section-head"><span className="kicker">TU HISTORIAL</span><h2>Consultas anteriores</h2><p>Tus diagnósticos quedan guardados de forma privada en tu cuenta.</p></div>
-      {history.length ? <div className="history-list">{history.map((item) => <details key={item.id}><summary><span><b>{item.plantName || "Planta sin identificar"}</b><small>{new Date(item.createdAt).toLocaleDateString("es-ES")} · {item.provider}</small></span><span>Ver diagnóstico</span></summary><p>{item.response}</p></details>)}</div> : <div className="empty small">Todavía no tienes consultas guardadas.</div>}
+      {history.length ? <div className="history-list">{history.map((item) => <details key={item.id}><summary><span><b>{item.plantName || "Planta sin identificar"}</b><small>{new Date(item.createdAt).toLocaleDateString("es-ES")} · Análisis avanzado</small></span><span>Ver diagnóstico</span></summary><p>{item.response}</p></details>)}</div> : <div className="empty small">Todavía no tienes consultas guardadas.</div>}
     </section></>;
 }
 

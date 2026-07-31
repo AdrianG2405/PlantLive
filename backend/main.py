@@ -274,7 +274,6 @@ def export_user_data(db: Session = Depends(get_db), user: User = Depends(get_cur
             "plantName": row.plant_name,
             "symptoms": row.symptoms,
             "response": row.response,
-            "provider": row.provider,
             "createdAt": row.created_at.isoformat(),
         } for row in diagnoses],
         "careEvents": [{
@@ -506,7 +505,7 @@ def preguntar(
             raise RuntimeError("El asistente botánico no está configurado")
         db.add(ApiUsage(user_id=user.id, operation="chat", provider=provider))
         db.commit()
-        return {"respuesta": respuesta, "provider": provider}
+        return {"respuesta": respuesta}
     except Exception as error:
         raise HTTPException(502, f"No se pudo responder: {error}") from error
 
@@ -616,7 +615,6 @@ def diagnosticar(
         db.commit()
         return {
             "respuesta": respuesta,
-            "provider": provider,
             "plantName": identified_plant,
             "identifiedPlant": identified_details,
         }
@@ -705,7 +703,7 @@ def diagnosis_history(db: Session = Depends(get_db), user: User = Depends(get_cu
         "id": row.id,
         "plantName": row.plant_name or extract_diagnosed_plant_name(row.response),
         "symptoms": row.symptoms,
-        "response": row.response, "provider": row.provider,
+        "response": row.response,
         "createdAt": row.created_at.isoformat(),
     } for row in rows]
 

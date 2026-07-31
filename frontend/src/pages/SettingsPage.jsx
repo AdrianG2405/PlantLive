@@ -54,7 +54,7 @@ export function SettingsPage({ notify }) {
       <Toggle label="Notificaciones emergentes" checked={settings.pushNotifications} onChange={(value) => setSettings({ ...settings, pushNotifications: value })} />
       <Toggle label="Notificaciones por correo electrónico" checked={settings.emailNotifications} onChange={(value) => setSettings({ ...settings, emailNotifications: value })} />
     </div>
-    <div className="settings-card"><h2><Brain size={21} /> Inteligencia artificial</h2><div className="consent-copy"><ShieldCheck size={24} /><p>El modo avanzado envía la fotografía a Plant.id y Gemini. Actívalo solo si aceptas el procesamiento por estos proveedores.</p></div>
+    <div className="settings-card"><h2><Brain size={21} /> Inteligencia artificial</h2><div className="consent-copy"><ShieldCheck size={24} /><p>El modo avanzado envía la fotografía a proveedores tecnológicos especializados. Actívalo solo si aceptas este procesamiento externo; encontrarás el detalle en la política de privacidad.</p></div>
       <Toggle label="Acepto el análisis mediante servicios externos" checked={settings.aiConsent} onChange={(value) => setSettings({ ...settings, aiConsent: value })} />
     </div>
     <button className="primary settings-save" onClick={save} disabled={saving}><Save size={18} /> {saving ? "Guardando…" : "Guardar preferencias"}</button>
