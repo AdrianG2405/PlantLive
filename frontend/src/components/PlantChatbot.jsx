@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Bot, Leaf, Send, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Bot, ImagePlus, Leaf, Send, Trash2, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { askPlantLive } from "../services/plantliveApi";
 
@@ -14,11 +14,42 @@ export function PlantChatbot({ plants, authenticated, notify }) {
   const [messages, setMessages] = useState([welcome]);
   const [question, setQuestion] = useState("");
   const [plantId, setPlantId] = useState("");
+  const [image, setImage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const openForPlant = (event) => {
+      setOpen(true);
+      setPlantId(event.detail?.plantId || "");
+      setQuestion(event.detail?.question || "");
+    };
+    window.addEventListener("plantlive:open-chat", openForPlant);
+    return () => window.removeEventListener("plantlive:open-chat", openForPlant);
+  }, []);
+
+  const loadImage = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) return notify("La imagen no puede superar 8 MB.");
+    const preview = new Image();
+    const url = URL.createObjectURL(file);
+    preview.onload = () => {
+      const scale = Math.min(1, 1100 / Math.max(preview.width, preview.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(preview.width * scale);
+      canvas.height = Math.round(preview.height * scale);
+      canvas.getContext("2d").drawImage(preview, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      setImage(canvas.toDataURL("image/jpeg", .8));
+    };
+    preview.onerror = () => { URL.revokeObjectURL(url); notify("No se pudo leer la imagen."); };
+    preview.src = url;
+  };
 
   const send = async (event) => {
     event?.preventDefault();
-    const text = question.trim();
+    const text = question.trim() || (image ? "¿Qué observas en esta planta?" : "");
     if (!text || loading) return;
     if (!authenticated) {
       notify("Inicia sesión para preguntar al asistente botánico.");
@@ -26,7 +57,7 @@ export function PlantChatbot({ plants, authenticated, notify }) {
       return;
     }
     const plant = plants.find((item) => item.instanceId === plantId);
-    const userMessage = { role: "user", content: text };
+    const userMessage = { role: "user", content: text, image };
     const nextMessages = [...messages, userMessage];
     setMessages(nextMessages);
     setQuestion("");
@@ -42,6 +73,7 @@ export function PlantChatbot({ plants, authenticated, notify }) {
           luz: plant.exposure || plant.luz,
         }) : undefined,
         historial: nextMessages.slice(1, -1),
+        imagen: image || undefined,
       });
       setMessages((current) => [...current, { role: "assistant", content: data.respuesta }]);
     } catch (error) {
@@ -67,11 +99,12 @@ export function PlantChatbot({ plants, authenticated, notify }) {
         {plants.map((plant) => <option key={plant.instanceId} value={plant.instanceId}>{plant.nickname || plant.nombreComun}</option>)}
       </select>}
       <div className="chat-messages">
-        {messages.map((message, index) => <div key={index} className={`chat-message ${message.role}`}>{message.content}</div>)}
+        {messages.map((message, index) => <div key={index} className={`chat-message ${message.role}`}>{message.image && <img className="chat-message-image" src={message.image} alt="Imagen enviada al asistente" />}{message.content}</div>)}
         {loading && <div className="chat-message assistant chat-typing"><i /><i /><i /></div>}
       </div>
       {messages.length === 1 && <button className="chat-suggestion" onClick={() => setQuestion("¿Puedo pasar mi lucky bamboo de agua a tierra?")}>¿Puedo pasar mi lucky bamboo a tierra?</button>}
-      <form onSubmit={send}><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Escribe tu pregunta…" maxLength={800} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); } }} /><button disabled={!question.trim() || loading} aria-label="Enviar"><Send size={18} /></button></form>
+      {image && <div className="chat-image-context"><img src={image} alt="Foto adjunta" /><span><b>Foto añadida al contexto</b><small>Puedes seguir preguntando sobre ella</small></span><button onClick={() => setImage("")} aria-label="Quitar fotografía"><Trash2 size={16} /></button></div>}
+      <form onSubmit={send}><label className="chat-attach" title="Añadir una fotografía"><ImagePlus size={19} /><input type="file" accept="image/jpeg,image/png,image/webp" onChange={loadImage} /></label><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={image ? "Pregunta algo sobre la foto…" : "Escribe tu pregunta…"} maxLength={800} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); } }} /><button disabled={(!question.trim() && !image) || loading} aria-label="Enviar"><Send size={18} /></button></form>
       <small className="chat-disclaimer">Orientación general. Ante intoxicaciones o riesgos graves, consulta a un profesional.</small>
     </section>}
   </>;

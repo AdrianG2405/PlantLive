@@ -163,6 +163,7 @@ def preguntar_avanzado(
     planta: str | None = None,
     contexto: str | None = None,
     historial: list[dict] | None = None,
+    imagen: str | None = None,
 ) -> str:
     model = os.getenv("GEMINI_MODEL", "").strip() or "gemini-3.6-flash"
     previous = [
@@ -184,8 +185,9 @@ a la especie y distingue entre cultivo en agua, tierra y semihidroponía cuando 
 relevante. Si faltan datos decisivos, pide solo uno o dos. No inventes certezas ni
 diagnostiques enfermedades sin evidencia. Advierte sobre toxicidad o riesgos cuando
 proceda."""
+    current_parts = ([{"inlineData": {"mimeType": "image/jpeg", "data": imagen}}] if imagen else []) + [{"text": prompt}]
     payload = {
-        "contents": [*previous, {"role": "user", "parts": [{"text": prompt}]}],
+        "contents": [*previous, {"role": "user", "parts": current_parts}],
         "generationConfig": {
             "maxOutputTokens": 900,
             "thinkingConfig": {"thinkingLevel": "minimal"},

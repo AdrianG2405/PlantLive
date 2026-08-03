@@ -435,6 +435,11 @@ def preguntar(
         raise HTTPException(400, "Escribe una pregunta")
     if len(pregunta) > 800:
         raise HTTPException(400, "La pregunta es demasiado larga")
+    imagen = datos.get("imagen")
+    if imagen:
+        if not isinstance(imagen, str) or len(imagen) > 8 * 1024 * 1024:
+            raise HTTPException(400, "La imagen es demasiado grande")
+        imagen = imagen.split(",", 1)[1] if "," in imagen else imagen
     today = datetime.utcnow().date()
     daily_limit = int(os.getenv("DAILY_CHAT_LIMIT", "40"))
     used = db.query(ApiUsage).filter(
@@ -451,10 +456,11 @@ def preguntar(
                 datos.get("planta"),
                 datos.get("contexto"),
                 datos.get("historial"),
+                imagen,
             )
             provider = "Gemini"
         elif os.getenv("ENABLE_LOCAL_AI", "").lower() in {"1", "true", "yes"}:
-            respuesta = preguntar_a_plantlive(pregunta, datos.get("planta"), datos.get("contexto"))
+            respuesta = preguntar_a_plantlive(pregunta, datos.get("planta"), datos.get("contexto"), imagen)
             provider = "Ollama local"
         else:
             raise RuntimeError("El asistente botánico no está configurado")

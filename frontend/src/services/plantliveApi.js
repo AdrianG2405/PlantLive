@@ -348,9 +348,9 @@ export function diagnosePlant({ imagenes, sintomas, planta }) {
   });
 }
 
-export function askPlantLive({ pregunta, planta, contexto, historial }) {
+export function askPlantLive({ pregunta, planta, contexto, historial, imagen }) {
   return request("/preguntar", {
     method: "POST",
-    body: JSON.stringify({ pregunta, planta, contexto, historial }),
+    body: JSON.stringify({ pregunta, planta, contexto, historial, imagen }),
   });
 }

@@ -39,14 +39,15 @@ def _parse_json(text: str) -> dict:
     return json.loads(cleaned)
 
 
-def preguntar_a_plantlive(pregunta: str, planta: str | None = None, contexto: str | None = None):
+def preguntar_a_plantlive(pregunta: str, planta: str | None = None, contexto: str | None = None, imagen: str | None = None):
     return _chat(
         f"""Planta: {planta or "no especificada"}
 Contexto: {contexto or "no disponible"}
 Pregunta: {pregunta}
 
 Explica observaciones, causas probables, acciones concretas, qué comprobar y qué
-vigilar durante los próximos días. Usa párrafos cortos."""
+vigilar durante los próximos días. Usa párrafos cortos.""",
+        images=[imagen] if imagen else None,
     )
 
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarDays, Camera, Check, Droplets, FlaskConical, History, RefreshCw, Scissors, Sprout, X } from "lucide-react";
+import { CalendarDays, Camera, Check, Droplets, FlaskConical, History, MessageCircle, RefreshCw, Scissors, Sprout, X } from "lucide-react";
 import { seasonalCareDays, userDataApi } from "../services/plantliveApi";
 
 const careTypes = [
@@ -79,6 +79,15 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }
       setRefreshingCare(false);
     }
   };
+  const askAboutPlant = () => {
+    window.dispatchEvent(new CustomEvent("plantlive:open-chat", {
+      detail: {
+        plantId: draft.instanceId,
+        question: `Tengo una duda sobre ${draft.nickname || draft.nombreComun}: `,
+      },
+    }));
+    onClose();
+  };
   return <div className="modal-backdrop" onClick={onClose}><section className="modal plant-profile" onClick={(event) => event.stopPropagation()}>
     <button className="close" onClick={onClose} aria-label="Cerrar">×</button><span className="kicker">FICHA DE CUIDADOS</span>
     <input className="nickname" value={draft.nickname} onChange={(event) => change({ nickname: event.target.value })} /><i>{draft.nombreCientifico}</i>
@@ -96,6 +105,7 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }
     </div>
     <button className="followup-button" onClick={refreshCare} disabled={refreshingCare}><RefreshCw size={16} /> {refreshingCare ? "Analizando condiciones…" : "Actualizar cuidados según mi casa"}</button>
     <section className="watering-planner"><div className="watering-planner-head"><span><Droplets size={21} /></span><div><h3>Planificar el próximo riego</h3><p>Si el sustrato aún está húmedo, cambia la fecha. El calendario recalculará los siguientes riegos desde el día que elijas.</p></div></div><div className="watering-planner-controls"><label><CalendarDays size={17} /><span>Próxima fecha</span><input type="date" min={new Date().toISOString().slice(0, 10)} value={draft.nextWater || ""} onChange={(event) => change({ nextWater: event.target.value })} /></label><button type="button" onClick={() => addCare("water")}><Droplets size={17} /> La he regado hoy</button></div>{draft.nextWater && <small>Próximo riego planificado: <b>{new Date(`${draft.nextWater}T12:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}</b></small>}</section>
+    <aside className="plant-chat-invite"><span><MessageCircle size={22} /></span><div><b>¿Tienes alguna duda sobre esta planta?</b><p>Pregunta al asistente de PlantLive sobre sus hojas, riego, luz o cuidados. También puedes enviarle una foto y continuar la conversación.</p></div><button type="button" onClick={askAboutPlant}>Preguntar al chatbot</button></aside>
     <div className="care-grid"><div><b>☀️ Luz</b><p>{draft.luz}</p></div><div><b>📍 Ubicación ideal</b><p>{draft.ubicacion}</p></div><div><b>🪴 Sustrato recomendado</b><p>{draft.sustrato}</p></div><div><b>💧 Riego actual</b><p>Revisar aproximadamente cada {seasonalCareDays(draft, "riego")} días. {draft.riegoIndicador || "Comprueba antes la humedad."}</p><small>Verano: {draft.riegoVeranoDias || draft.riegoDias} días · Invierno: {draft.riegoInviernoDias || draft.riegoDias} días</small></div><div><b>🧪 Abono y fertilización</b><p>{draft.fertilizante}.</p><small>Primavera: {feedingInterval(draft.abonoPrimaveraDias ?? draft.abonoDias)} · Verano: {feedingInterval(draft.abonoVeranoDias ?? draft.abonoDias)} · Otoño: {feedingInterval(draft.abonoOtonoDias ?? draft.abonoDias)} · Invierno: {feedingInterval(draft.abonoInviernoDias ?? draft.abonoDias)}.</small>{draft.abonoIndicador && <p>{draft.abonoIndicador}</p>}</div><div><b>🌡️ Ambiente</b><p>{draft.temperatura} · Humedad {draft.humedad}</p></div></div>
     <div className="warning">🐾 {draft.toxicidad}</div>
     {(draft.advertencias || draft.confianzaCuidados) && <div className={`care-confidence ${draft.confianzaCuidados || "media"}`}><b>Confianza de la ficha: {draft.confianzaCuidados || "media"}</b><span>{draft.advertencias || "Contrasta los cuidados con la respuesta real de tu ejemplar."}</span></div>}
