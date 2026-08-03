@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
-import { userDataApi } from "../services/plantliveApi";
+import { seasonalCareDays, userDataApi } from "../services/plantliveApi";
+
+const isoDate = (date) => date.toISOString().slice(0, 10);
+const dateFromIso = (value) => new Date(`${value}T12:00:00`);
+const addDays = (value, days) => {
+  const date = dateFromIso(value);
+  date.setDate(date.getDate() + Math.max(1, Number(days) || 1));
+  return isoDate(date);
+};
 
 export function CalendarPage({ upcoming, plants, notify }) {
   const [tasks, setTasks] = useState([]);
@@ -20,11 +28,39 @@ export function CalendarPage({ upcoming, plants, notify }) {
     return [...Array((first + 6) % 7).fill(null), ...Array.from({ length: count }, (_, index) => index + 1)];
   }, [visibleMonth]);
 
-  const events = [
-    ...upcoming.map((item) => ({ ...item, title: `${item.action}: ${item.plant}` })),
-    ...tasks.map((item) => ({ ...item, date: item.dueDate })),
-  ];
   const monthKey = `${visibleMonth.getFullYear()}-${String(visibleMonth.getMonth() + 1).padStart(2, "0")}`;
+  const projectedWaterings = useMemo(() => {
+    const monthStart = `${monthKey}-01`;
+    const monthEnd = isoDate(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0, 12));
+    return plants.flatMap((plant) => {
+      if (!plant.nextWater) return [];
+      const items = [];
+      let date = plant.nextWater;
+      let guard = 0;
+      while (date < monthStart && guard < 400) {
+        date = addDays(date, seasonalCareDays(plant, "riego", dateFromIso(date)));
+        guard += 1;
+      }
+      while (date <= monthEnd && guard < 400) {
+        items.push({
+          id: `${plant.instanceId}-water-${date}`,
+          date,
+          icon: "💧",
+          action: "Riego previsto",
+          plant: plant.nickname || plant.nombreComun,
+          title: `Riego: ${plant.nickname || plant.nombreComun}`,
+        });
+        date = addDays(date, seasonalCareDays(plant, "riego", dateFromIso(date)));
+        guard += 1;
+      }
+      return items;
+    });
+  }, [monthKey, plants, visibleMonth]);
+  const events = [
+    ...upcoming.filter((item) => !item.action.toLowerCase().includes("riego")).map((item) => ({ ...item, title: `${item.action}: ${item.plant}` })),
+    ...projectedWaterings,
+    ...tasks.filter((item) => !item.completed).map((item) => ({ ...item, date: item.dueDate })),
+  ];
   const monthEvents = events.filter((item) => item.date?.startsWith(monthKey));
   const monthTasks = tasks.filter((task) => !task.completed && task.dueDate?.startsWith(monthKey));
   const monthLabel = visibleMonth.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
@@ -46,7 +82,7 @@ export function CalendarPage({ upcoming, plants, notify }) {
     } catch (error) { notify(error.message); }
   };
 
-  return <><section className="page-banner"><span className="kicker">PLANIFICACIÓN</span><h1>Calendario de cuidados</h1><p>Riegos, abonados y tareas personalizadas en un solo lugar.</p></section><section className="section calendar-page">
+  return <><section className="page-banner"><span className="kicker">PLANIFICACIÓN</span><h1>Calendario de cuidados</h1><p>Consulta todos los riegos previstos, abonados y tareas. La planificación calcula cada riego suponiendo que se realiza en la fecha indicada.</p></section><section className="section calendar-page">
     <form className="task-form" onSubmit={add}><input required placeholder="Nueva tarea: podar, trasplantar…" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /><input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} /><select value={form.plantId} onChange={(event) => setForm({ ...form, plantId: event.target.value })}><option value="">General</option>{plants.map((plant) => <option key={plant.serverId} value={plant.serverId}>{plant.nickname}</option>)}</select><button className="primary"><Plus size={17} /> Añadir</button></form>
     <div className="calendar-month-nav"><button type="button" onClick={() => changeMonth(-1)} aria-label="Mes anterior"><ChevronLeft size={20} /></button><h2>{monthLabel}</h2><button type="button" onClick={() => changeMonth(1)} aria-label="Mes siguiente"><ChevronRight size={20} /></button><button type="button" className="calendar-today" onClick={showToday}>Hoy</button></div>
     <div className="month-grid"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>{days.map((day, index) => {
