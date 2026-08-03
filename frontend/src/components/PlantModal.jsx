@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Camera, Check, Droplets, FlaskConical, History, RefreshCw, Scissors, Sprout, X } from "lucide-react";
+import { CalendarDays, Camera, Check, Droplets, FlaskConical, History, RefreshCw, Scissors, Sprout, X } from "lucide-react";
 import { seasonalCareDays, userDataApi } from "../services/plantliveApi";
 
 const careTypes = [
@@ -9,6 +9,11 @@ const careTypes = [
 ];
 const labels = Object.fromEntries(careTypes.map(([value, label]) => [value, label]));
 const feedingInterval = (days) => Number(days) > 0 ? `cada ${days} días` : "no abonar";
+const nextDateFrom = (date, days) => {
+  const next = new Date(`${date}T12:00:00`);
+  next.setDate(next.getDate() + Math.max(1, Number(days) || 1));
+  return next.toISOString().slice(0, 10);
+};
 
 export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }) {
   const [draft, setDraft] = useState(plant);
@@ -27,6 +32,10 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }
   const addCare = async (type) => {
     const item = await userDataApi.addCare(draft.serverId, { type });
     setHistory((current) => [item, ...current]);
+    if (type === "water") {
+      const today = new Date().toISOString().slice(0, 10);
+      change({ nextWater: nextDateFrom(today, seasonalCareDays(draft, "riego", new Date())) });
+    }
   };
   const addPhoto = (event) => {
     const file = event.target.files?.[0];
@@ -86,6 +95,7 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }
       <label>Último trasplante<input type="date" value={draft.lastRepot || ""} onChange={(event) => change({ lastRepot: event.target.value })} /></label>
     </div>
     <button className="followup-button" onClick={refreshCare} disabled={refreshingCare}><RefreshCw size={16} /> {refreshingCare ? "Analizando condiciones…" : "Actualizar cuidados según mi casa"}</button>
+    <section className="watering-planner"><div className="watering-planner-head"><span><Droplets size={21} /></span><div><h3>Planificar el próximo riego</h3><p>Si el sustrato aún está húmedo, cambia la fecha. El calendario recalculará los siguientes riegos desde el día que elijas.</p></div></div><div className="watering-planner-controls"><label><CalendarDays size={17} /><span>Próxima fecha</span><input type="date" min={new Date().toISOString().slice(0, 10)} value={draft.nextWater || ""} onChange={(event) => change({ nextWater: event.target.value })} /></label><button type="button" onClick={() => addCare("water")}><Droplets size={17} /> La he regado hoy</button></div>{draft.nextWater && <small>Próximo riego planificado: <b>{new Date(`${draft.nextWater}T12:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}</b></small>}</section>
     <div className="care-grid"><div><b>☀️ Luz</b><p>{draft.luz}</p></div><div><b>📍 Ubicación ideal</b><p>{draft.ubicacion}</p></div><div><b>🪴 Sustrato recomendado</b><p>{draft.sustrato}</p></div><div><b>💧 Riego actual</b><p>Revisar aproximadamente cada {seasonalCareDays(draft, "riego")} días. {draft.riegoIndicador || "Comprueba antes la humedad."}</p><small>Verano: {draft.riegoVeranoDias || draft.riegoDias} días · Invierno: {draft.riegoInviernoDias || draft.riegoDias} días</small></div><div><b>🧪 Abono y fertilización</b><p>{draft.fertilizante}.</p><small>Primavera: {feedingInterval(draft.abonoPrimaveraDias ?? draft.abonoDias)} · Verano: {feedingInterval(draft.abonoVeranoDias ?? draft.abonoDias)} · Otoño: {feedingInterval(draft.abonoOtonoDias ?? draft.abonoDias)} · Invierno: {feedingInterval(draft.abonoInviernoDias ?? draft.abonoDias)}.</small>{draft.abonoIndicador && <p>{draft.abonoIndicador}</p>}</div><div><b>🌡️ Ambiente</b><p>{draft.temperatura} · Humedad {draft.humedad}</p></div></div>
     <div className="warning">🐾 {draft.toxicidad}</div>
     {(draft.advertencias || draft.confianzaCuidados) && <div className={`care-confidence ${draft.confianzaCuidados || "media"}`}><b>Confianza de la ficha: {draft.confianzaCuidados || "media"}</b><span>{draft.advertencias || "Contrasta los cuidados con la respuesta real de tu ejemplar."}</span></div>}
