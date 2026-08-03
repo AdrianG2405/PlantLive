@@ -10,8 +10,9 @@ const addDays = (value, days) => {
   return isoDate(date);
 };
 
-export function CalendarPage({ upcoming, plants, notify }) {
+export function CalendarPage({ upcoming, plants, completeWatering, notify }) {
   const [tasks, setTasks] = useState([]);
+  const [savingWatering, setSavingWatering] = useState("");
   const [selectedDate, setSelectedDate] = useState(null);
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const today = new Date();
@@ -33,8 +34,19 @@ export function CalendarPage({ upcoming, plants, notify }) {
     const monthStart = `${monthKey}-01`;
     const monthEnd = isoDate(new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 0, 12));
     return plants.flatMap((plant) => {
-      if (!plant.nextWater) return [];
-      const items = [];
+      const completedDates = new Set(plant.completedWaterings || []);
+      const items = [...completedDates].filter((date) => date.startsWith(monthKey)).map((date) => ({
+        id: `${plant.instanceId}-water-${date}`,
+        date,
+        icon: "💧",
+        action: "Riego realizado",
+        plant: plant.nickname || plant.nombreComun,
+        plantInstanceId: plant.instanceId,
+        title: `Riego: ${plant.nickname || plant.nombreComun}`,
+        completed: true,
+        watering: true,
+      }));
+      if (!plant.nextWater) return items;
       let date = plant.nextWater;
       let guard = 0;
       while (date < monthStart && guard < 400) {
@@ -42,13 +54,16 @@ export function CalendarPage({ upcoming, plants, notify }) {
         guard += 1;
       }
       while (date <= monthEnd && guard < 400) {
-        items.push({
+        if (!completedDates.has(date)) items.push({
           id: `${plant.instanceId}-water-${date}`,
           date,
           icon: "💧",
           action: "Riego previsto",
           plant: plant.nickname || plant.nombreComun,
+          plantInstanceId: plant.instanceId,
           title: `Riego: ${plant.nickname || plant.nombreComun}`,
+          completed: false,
+          watering: true,
         });
         date = addDays(date, seasonalCareDays(plant, "riego", dateFromIso(date)));
         guard += 1;
@@ -81,6 +96,15 @@ export function CalendarPage({ upcoming, plants, notify }) {
       load();
     } catch (error) { notify(error.message); }
   };
+  const markWatered = async (event) => {
+    setSavingWatering(event.id);
+    try {
+      await completeWatering(event);
+      notify(`${event.plant} marcada como regada.`);
+    } finally {
+      setSavingWatering("");
+    }
+  };
 
   return <><section className="page-banner"><span className="kicker">PLANIFICACIÓN</span><h1>Calendario de cuidados</h1><p>Consulta todos los riegos previstos, abonados y tareas. La planificación calcula cada riego suponiendo que se realiza en la fecha indicada.</p></section><section className="section calendar-page">
     <form className="task-form" onSubmit={add}><input required placeholder="Nueva tarea: podar, trasplantar…" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /><input type="date" value={form.dueDate} onChange={(event) => setForm({ ...form, dueDate: event.target.value })} /><select value={form.plantId} onChange={(event) => setForm({ ...form, plantId: event.target.value })}><option value="">General</option>{plants.map((plant) => <option key={plant.serverId} value={plant.serverId}>{plant.nickname}</option>)}</select><button className="primary"><Plus size={17} /> Añadir</button></form>
@@ -88,9 +112,9 @@ export function CalendarPage({ upcoming, plants, notify }) {
     <div className="month-grid"><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>{days.map((day, index) => {
       const date = day ? `${monthKey}-${String(day).padStart(2, "0")}` : null;
       const dayEvents = date ? monthEvents.filter((item) => item.date === date) : [];
-      return <article key={`${monthKey}-${index}`} className={`${!day ? "blank-day" : ""} ${selectedDate === date ? "selected-day" : ""} ${dayEvents.length ? "has-events" : ""}`}>{day && <button type="button" className="calendar-day-button" onClick={() => setSelectedDate(date)} aria-label={`Ver planificación del ${day} de ${monthLabel}`}><b>{day}</b>{dayEvents.slice(0, 3).map((item, eventIndex) => <small key={`${item.id || item.title}-${eventIndex}`}>{item.icon || "•"} {item.title}</small>)}</button>}</article>;
+      return <article key={`${monthKey}-${index}`} className={`${!day ? "blank-day" : ""} ${selectedDate === date ? "selected-day" : ""} ${dayEvents.length ? "has-events" : ""}`}>{day && <button type="button" className="calendar-day-button" onClick={() => setSelectedDate(date)} aria-label={`Ver planificación del ${day} de ${monthLabel}`}><b>{day}</b>{dayEvents.slice(0, 3).map((item, eventIndex) => <small className={item.completed ? "completed-event" : ""} key={`${item.id || item.title}-${eventIndex}`}>{item.icon || "•"} {item.title}{item.completed ? " · Hecho" : ""}</small>)}</button>}</article>;
     })}</div>
     <div className="task-list">{monthTasks.map((task) => <div key={task.id}><span>{task.dueDate} · {task.title}</span><button onClick={async () => { await userDataApi.updateTask(task.id, { completed: true }); load(); }}><Check size={16} /> Hecho</button></div>)}</div>
-    {selectedDate && <div className="calendar-detail-backdrop" onClick={() => setSelectedDate(null)}><section className="calendar-day-detail" onClick={(event) => event.stopPropagation()}><button className="calendar-detail-close" onClick={() => setSelectedDate(null)} aria-label="Cerrar"><X size={20} /></button><span className="kicker">PLANIFICACIÓN DEL DÍA</span><h2>{new Date(`${selectedDate}T12:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}</h2>{selectedEvents.length ? <div className="calendar-detail-events">{selectedEvents.map((item, index) => <article key={`${item.id || item.title}-${index}`}><span>{item.icon || "•"}</span><div><b>{item.title}</b><small>{item.plant || "Tarea programada"}</small></div></article>)}</div> : <p>No hay cuidados programados para este día.</p>}</section></div>}
+    {selectedDate && <div className="calendar-detail-backdrop" onClick={() => setSelectedDate(null)}><section className="calendar-day-detail" onClick={(event) => event.stopPropagation()}><button className="calendar-detail-close" onClick={() => setSelectedDate(null)} aria-label="Cerrar"><X size={20} /></button><span className="kicker">PLANIFICACIÓN DEL DÍA</span><h2>{new Date(`${selectedDate}T12:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}</h2>{selectedEvents.length ? <div className="calendar-detail-events">{selectedEvents.map((item, index) => <article className={item.completed ? "completed" : ""} key={`${item.id || item.title}-${index}`}><span>{item.icon || "•"}</span><div><b>{item.title}</b><small>{item.completed ? "Regada · cuidado completado" : item.plant || "Tarea programada"}</small></div>{item.watering && !item.completed && <button className="mark-watered-button" onClick={() => markWatered(item)} disabled={savingWatering === item.id}><Check size={16} /> {savingWatering === item.id ? "Guardando…" : "Marcar como regada"}</button>}{item.watering && item.completed && <strong className="watering-done"><Check size={15} /> Regada</strong>}</article>)}</div> : <p>No hay cuidados programados para este día.</p>}</section></div>}
   </section></>;
 }

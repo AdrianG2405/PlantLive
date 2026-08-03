@@ -9,6 +9,14 @@ const datePlus = (days) => {
   return date.toISOString().slice(0, 10);
 };
 
+const datePlusFrom = (value, days) => {
+  const interval = Number(days);
+  if (!value || !Number.isFinite(interval) || interval <= 0) return null;
+  const date = new Date(`${value}T12:00:00`);
+  date.setDate(date.getDate() + interval);
+  return date.toISOString().slice(0, 10);
+};
+
 export function usePlants(user, notify) {
   const [plants, setPlants] = useState([]);
   const [loadingPlants, setLoadingPlants] = useState(false);
@@ -93,5 +101,24 @@ export function usePlants(user, notify) {
       type: event.action.includes("riego") ? "water" : "fertilize",
     }).catch((error) => notify(error.message));
   };
-  return { plants, upcoming, loadingPlants, addPlant, updatePlant, refreshPlantCare, removePlant, markDone };
+  const completeWatering = async (event) => {
+    const plant = plants.find((item) => item.instanceId === event.plantInstanceId);
+    if (!plant || !event.date) return;
+    const completedWaterings = [...new Set([...(plant.completedWaterings || []), event.date])].sort();
+    const values = {
+      completedWaterings,
+      nextWater: datePlusFrom(event.date, seasonalCareDays(plant, "riego", new Date(`${event.date}T12:00:00`))),
+    };
+    setPlants((current) => current.map((item) => item.instanceId === plant.instanceId ? { ...item, ...values } : item));
+    try {
+      await Promise.all([
+        userDataApi.updatePlant(plant.serverId, values),
+        userDataApi.addCare(plant.serverId, { type: "water", notes: `Riego previsto ${event.date}` }),
+      ]);
+    } catch (error) {
+      notify(error.message);
+      throw error;
+    }
+  };
+  return { plants, upcoming, loadingPlants, addPlant, updatePlant, refreshPlantCare, removePlant, markDone, completeWatering };
 }
