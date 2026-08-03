@@ -12,13 +12,19 @@ createRoot(document.getElementById('root')).render(
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", async () => {
     const hadController = Boolean(navigator.serviceWorker.controller);
-    const registration = await navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
-    await registration.update();
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (hadController && !sessionStorage.getItem("plantlive-sw-reloaded")) {
-        sessionStorage.setItem("plantlive-sw-reloaded", "1");
-        window.location.reload();
-      }
-    });
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" });
+      await registration.update();
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        let alreadyReloaded = false;
+        try {
+          alreadyReloaded = Boolean(sessionStorage.getItem("plantlive-sw-reloaded"));
+          if (!alreadyReloaded) sessionStorage.setItem("plantlive-sw-reloaded", "1");
+        } catch { /* Storage may be blocked; reloading is still safe once per page lifecycle. */ }
+        if (hadController && !alreadyReloaded) window.location.reload();
+      });
+    } catch (error) {
+      console.warn("No se pudo actualizar el modo sin conexión", error);
+    }
   });
 }

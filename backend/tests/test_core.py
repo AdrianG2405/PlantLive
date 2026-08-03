@@ -4,14 +4,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
 from auth import hash_password, verify_password
-from database import Base
-from main import extract_diagnosed_plant, is_email_verified, valid_new_password
-from models import EmailVerificationToken, User
-from datetime import datetime, timedelta
+from main import extract_diagnosed_plant, valid_new_password
 
 
 class SecurityTests(unittest.TestCase):
@@ -39,32 +33,6 @@ class DiagnosisParsingTests(unittest.TestCase):
         response = "IDENTIFICACIÓN\nNombre común: Costilla de Adán\nNombre científico: Monstera deliciosa\nLO QUE VEO: Sin daños."
         plant = extract_diagnosed_plant(response)
         self.assertEqual(plant["displayName"], "Costilla de Adán (Monstera deliciosa)")
-
-
-class VerificationTests(unittest.TestCase):
-    def setUp(self):
-        engine = create_engine("sqlite:///:memory:")
-        Base.metadata.create_all(engine)
-        self.db = sessionmaker(bind=engine)()
-        self.user = User(name="Prueba", email="test@example.com", password_hash="hash")
-        self.db.add(self.user); self.db.commit(); self.db.refresh(self.user)
-
-    def tearDown(self):
-        self.db.close()
-
-    def test_existing_account_without_tokens_is_grandfathered(self):
-        self.assertTrue(is_email_verified(self.db, self.user.id))
-
-    def test_new_account_requires_used_verification(self):
-        token = EmailVerificationToken(
-            user_id=self.user.id,
-            token_hash="a" * 64,
-            expires_at=datetime.utcnow() + timedelta(hours=1),
-        )
-        self.db.add(token); self.db.commit()
-        self.assertFalse(is_email_verified(self.db, self.user.id))
-        token.used = True; self.db.commit()
-        self.assertTrue(is_email_verified(self.db, self.user.id))
 
 
 if __name__ == "__main__":

@@ -2,7 +2,8 @@ const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const PLANTAE_TAXON_ID = "47126";
 
 async function request(path, options) {
-  const token = localStorage.getItem("plantlive-token");
+  let token = null;
+  try { token = localStorage.getItem("plantlive-token"); } catch { /* Storage can be blocked on mobile browsers. */ }
   const isForm = options?.body instanceof FormData;
   const response = await fetch(`${API}${path}`, {
     ...options,
@@ -26,8 +27,6 @@ export const authApi = {
   changePassword: (currentPassword, newPassword) => request("/auth/change-password", {
     method: "POST", body: JSON.stringify({ currentPassword, newPassword }),
   }),
-  resendVerification: () => request("/auth/resend-verification", { method: "POST" }),
-  verifyEmail: (token) => request("/auth/verify-email", { method: "POST", body: JSON.stringify({ token }) }),
   forgotPassword: (email) => request("/auth/forgot-password", { method: "POST", body: JSON.stringify({ email }) }),
   resetPassword: (token, password) => request("/auth/reset-password", { method: "POST", body: JSON.stringify({ token, password }) }),
 };

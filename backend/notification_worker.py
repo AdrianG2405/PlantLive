@@ -117,7 +117,7 @@ def run_once() -> dict[str, int]:
                             failed += 1
                             logger.exception("No se pudo enviar el aviso push de la suscripción %s", subscription.id)
                             continue
-                if settings.email_notifications:
+                if settings.email_notifications and os.getenv("EMAIL_REMINDERS_ENABLED", "false").lower() == "true":
                     try:
                         if send_email(user, title, reminder):
                             sent += 1

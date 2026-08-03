@@ -28,8 +28,8 @@ from database import Base, apply_compatible_schema_updates, engine, get_db
 from hybrid_ai_service import advanced_ai_configured, crear_ficha_avanzada, diagnosticar_avanzado, gemini_configured, preguntar_avanzado
 from models import ApiUsage, AuthSession, CareEvent, CustomTask, DiagnosisHistory, EmailVerificationToken, LegalAcceptance, NotificationDelivery, PasswordResetToken, Planta, PushSubscription, User, UserFeedback, UserPlant, UserSettings
 from storage_service import UPLOAD_DIR, delete_plant_photo, save_plant_photo
-from email_service import send_email_verification, send_password_reset
-from notification_worker import run_once as send_due_notifications, send_email as send_reminder_email, send_test_push
+from email_service import send_password_reset
+from notification_worker import run_once as send_due_notifications, send_test_push
 
 Base.metadata.create_all(bind=engine)
 apply_compatible_schema_updates()
@@ -140,23 +140,12 @@ def trigger_reminders(x_cron_secret: str | None = Header(default=None)):
     return send_due_notifications()
 
 
-def is_email_verified(db: Session, user_id: int) -> bool:
-    tokens = db.query(EmailVerificationToken).filter(EmailVerificationToken.user_id == user_id)
-    return not tokens.first() or tokens.filter(EmailVerificationToken.used.is_(True)).first() is not None
-
-
-def require_verified_email(db: Session, user: User) -> None:
-    if not is_email_verified(db, user.id):
-        raise HTTPException(403, "Verifica tu correo electrónico para utilizar esta función")
-
-
 def public_user(db: Session, user: User) -> dict:
     return {
         "id": user.id,
         "name": user.name,
         "email": user.email,
         "notificationsEnabled": user.notifications_enabled,
-        "emailVerified": is_email_verified(db, user.id),
     }
 
 def valid_new_password(password: str) -> bool:
@@ -195,18 +184,7 @@ def register(datos: dict, request: Request, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     db.add(LegalAcceptance(user_id=user.id, version="2026-07-31"))
-    verification_token = secrets.token_urlsafe(32)
-    db.add(EmailVerificationToken(
-        user_id=user.id,
-        token_hash=hashlib.sha256(verification_token.encode()).hexdigest(),
-        expires_at=datetime.utcnow() + timedelta(hours=24),
-    ))
     db.commit()
-    if os.getenv("RESEND_API_KEY"):
-        try:
-            send_email_verification(user.email, verification_token)
-        except Exception:
-            logger.exception("No se pudo enviar la verificación de correo")
     return {"token": create_session(db, user.id), "user": public_user(db, user)}
 
 
@@ -352,42 +330,6 @@ def logout_all(db: Session = Depends(get_db), user: User = Depends(get_current_u
     return {"ok": True}
 
 
-@app.post("/auth/resend-verification")
-def resend_verification(db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    if is_email_verified(db, user.id):
-        return {"message": "El correo ya está verificado"}
-    db.query(EmailVerificationToken).filter(
-        EmailVerificationToken.user_id == user.id,
-        EmailVerificationToken.used.is_(False),
-    ).delete()
-    token = secrets.token_urlsafe(32)
-    db.add(EmailVerificationToken(
-        user_id=user.id,
-        token_hash=hashlib.sha256(token.encode()).hexdigest(),
-        expires_at=datetime.utcnow() + timedelta(hours=24),
-    ))
-    db.commit()
-    if not os.getenv("RESEND_API_KEY"):
-        raise HTTPException(503, "El envío de correo no está configurado")
-    send_email_verification(user.email, token)
-    return {"message": "Correo de verificación enviado"}
-
-
-@app.post("/auth/verify-email")
-def verify_email(datos: dict, db: Session = Depends(get_db)):
-    token_hash = hashlib.sha256(datos.get("token", "").encode()).hexdigest()
-    row = db.query(EmailVerificationToken).filter(
-        EmailVerificationToken.token_hash == token_hash,
-        EmailVerificationToken.expires_at > datetime.utcnow(),
-        EmailVerificationToken.used.is_(False),
-    ).first()
-    if not row:
-        raise HTTPException(400, "El enlace de verificación no es válido o ha caducado")
-    row.used = True
-    db.commit()
-    return {"message": "Correo verificado correctamente"}
-
-
 @app.post("/auth/forgot-password")
 def forgot_password(datos: dict, request: Request, db: Session = Depends(get_db)):
     enforce_rate_limit(request, "forgot", 5, 3600)
@@ -456,22 +398,6 @@ def test_notification(user: User = Depends(get_current_user)):
     return result
 
 
-@app.post("/user/test-email")
-def test_email(user: User = Depends(get_current_user)):
-    try:
-        sent = send_reminder_email(
-            user,
-            "PlantLive · Correo de prueba",
-            "Los recordatorios por correo están conectados correctamente.",
-        )
-    except Exception as error:
-        logger.exception("Falló el correo de prueba para el usuario %s", user.id)
-        raise HTTPException(502, str(error)[:300] or "Resend rechazó el correo.") from error
-    if not sent:
-        raise HTTPException(409, "No hay ningún proveedor de correo configurado en Render.")
-    return {"sent": True, "email": user.email}
-
-
 @app.post("/user/photos")
 async def upload_user_photo(file: UploadFile = File(...), user: User = Depends(get_current_user)):
     allowed = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp"}
@@ -504,7 +430,6 @@ def preguntar(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    require_verified_email(db, user)
     pregunta = datos.get("pregunta", "").strip()
     if not pregunta:
         raise HTTPException(400, "Escribe una pregunta")
@@ -542,7 +467,6 @@ def preguntar(
 
 @app.post("/plantas/buscar-ia")
 def buscar_planta_ia(datos: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    require_verified_email(db, user)
     consulta = datos.get("consulta", "").strip()
     if len(consulta) < 2:
         raise HTTPException(400, "Escribe el nombre de una planta")
@@ -558,7 +482,6 @@ def ficha_planta_ia(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    require_verified_email(db, user)
     nombre_cientifico = datos.get("nombreCientifico", "").strip()
     if not nombre_cientifico:
         raise HTTPException(400, "Falta el nombre científico")
@@ -596,7 +519,6 @@ def diagnosticar(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
-    require_verified_email(db, user)
     imagenes = datos.get("imagenes") or ([datos.get("imagen")] if datos.get("imagen") else [])
     if not imagenes or len(imagenes) > 4:
         raise HTTPException(400, "Selecciona entre 1 y 4 fotografías")

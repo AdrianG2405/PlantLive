@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Bell, BellRing, CalendarDays, Check, Droplets, Leaf, Plus, Search, Sparkles } from "lucide-react";
+import { Bell, BellRing, CalendarDays, Camera, Check, Droplets, Leaf, Plus, Search, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { PlantModal } from "../components/PlantModal";
@@ -27,7 +27,7 @@ export function MyPlantsPage({
     }
     try {
       const result = await notifications.requestPermission();
-      notify(result === "granted" ? "Notificaciones activadas y conectadas." : "El navegador no permitió las notificaciones.");
+      notify(result === "granted" ? "Notificaciones activadas y conectadas." : "No se pudo obtener permiso para las notificaciones.");
     } catch (error) {
       notify(error.message || "No se pudieron activar las notificaciones.");
     }
@@ -40,7 +40,8 @@ export function MyPlantsPage({
         <h1>Un hogar para cada <em>planta.</em></h1>
         <p>Reúne tu colección, registra sus cuidados y descubre qué necesita cada ejemplar en el momento adecuado.</p>
         <div className="garden-hero-actions">
-          <Link className="primary" to={authenticated ? "/#buscar" : "/acceso"} state={authenticated ? undefined : { from: "/" }}><Plus size={18} /> Añadir una planta</Link>
+          <Link className="primary" to={authenticated ? "/#buscar" : "/acceso"} state={authenticated ? undefined : { from: "/" }}><Search size={18} /> Buscar por nombre</Link>
+          <Link className="garden-photo-action" to={authenticated ? "/diagnostico" : "/acceso"} state={authenticated ? undefined : { from: "/diagnostico" }}><Camera size={18} /> Identificar con una foto</Link>
           <Link to="/calendario"><CalendarDays size={17} /> Ver calendario</Link>
         </div>
       </motion.div>
@@ -65,7 +66,7 @@ export function MyPlantsPage({
           <div className="modern-plant-info"><small>{plant.categoria || "MI PLANTA"}</small><h3>{plant.nickname || plant.nombreComun}</h3><i>{plant.nombreCientifico}</i><div><span><Droplets size={15} /> Próximo riego</span><b>{plant.nextWater ? new Date(`${plant.nextWater}T12:00`).toLocaleDateString("es-ES", { day: "numeric", month: "short" }) : "Por definir"}</b></div></div>
         </motion.button>)}</div> :
         plants.length ? <div className="empty small">No hay plantas que coincidan con “{filter}”.</div> :
-        <div className="garden-empty"><div className="empty-plant-visual"><Leaf size={56} /><span>+</span></div><span className="kicker">EMPIEZA TU COLECCIÓN</span><h3>{authenticated ? "Tu primer rincón verde te espera" : "Crea un jardín que recuerde por ti"}</h3><p>{authenticated ? "Busca una especie, añádela y PlantLive preparará su ficha y calendario de cuidados." : "Explora esta sección libremente. Inicia sesión cuando quieras guardar plantas y recibir recordatorios personalizados."}</p><Link className="primary big" to={authenticated ? "/#buscar" : "/acceso"} state={authenticated ? undefined : { from: "/" }}><Plus size={18} /> {authenticated ? "Buscar mi primera planta" : "Iniciar sesión para empezar"}</Link></div>}
+        <div className="garden-empty"><div className="empty-plant-visual"><Leaf size={56} /><span>+</span></div><span className="kicker">EMPIEZA TU COLECCIÓN</span><h3>{authenticated ? "Tu primer rincón verde te espera" : "Crea un jardín que recuerde por ti"}</h3><p>{authenticated ? "Busca una especie por su nombre o hazle una foto si no sabes cuál es. PlantLive preparará su ficha y calendario de cuidados." : "Explora esta sección libremente. Inicia sesión cuando quieras guardar plantas y recibir recordatorios personalizados."}</p>{authenticated ? <div className="garden-empty-actions"><Link className="primary big" to="/#buscar"><Search size={18} /> Buscar por nombre</Link><Link className="photo-identify-button" to="/diagnostico"><Camera size={18} /> Identificar con foto</Link></div> : <Link className="primary big" to="/acceso" state={{ from: "/" }}><Plus size={18} /> Iniciar sesión para empezar</Link>}</div>}
     </section>
 
     <section className="garden-agenda-section"><div className="garden-agenda-copy"><span className="kicker light">PRÓXIMOS CUIDADOS</span><h2>Tu jardín,<br />al día.</h2><p>Las fechas son orientativas. Comprueba siempre el sustrato y observa la respuesta de la planta.</p><Link to="/calendario">Abrir calendario completo →</Link></div>

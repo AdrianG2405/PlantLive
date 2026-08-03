@@ -54,17 +54,3 @@ def send_password_reset(to: str, token: str) -> bool:
         <p>Este enlace caduca en 30 minutos. Si no lo solicitaste, puedes ignorar este mensaje.</p>
         </div>""",
     )
-
-
-def send_email_verification(to: str, token: str) -> bool:
-    url = f"{os.getenv('FRONTEND_URL', 'http://localhost:5173').rstrip('/')}/verificar?token={token}"
-    return send_email(
-        to,
-        "Verifica tu cuenta de PlantLive",
-        f"""<div style="font-family:Arial;color:#173126;max-width:560px;margin:auto">
-        <h1>Confirma tu correo electrónico</h1>
-        <p>Verifica tu dirección para proteger tu jardín y utilizar las funciones de inteligencia artificial.</p>
-        <p><a href="{url}" style="display:inline-block;background:#123f31;color:white;padding:12px 18px;border-radius:9px;text-decoration:none">Verificar mi cuenta</a></p>
-        <p>Este enlace caduca en 24 horas. Si no creaste esta cuenta, ignora este mensaje.</p>
-        </div>""",
-    )

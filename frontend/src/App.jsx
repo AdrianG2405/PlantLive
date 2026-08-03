@@ -4,7 +4,6 @@ import "./App.css";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
 import { PlantChatbot } from "./components/PlantChatbot";
-import { EmailVerificationBanner } from "./components/EmailVerificationBanner";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import { useAuth } from "./contexts/authStore";
@@ -20,7 +19,6 @@ import { LegalPage } from "./pages/LegalPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
-import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { TermsPage } from "./pages/TermsPage";
 
 function App() {
@@ -36,7 +34,6 @@ function App() {
   const notifications = useCareNotifications(garden.upcoming, Boolean(user));
   return <div className="app">
     <Header />
-    <EmailVerificationBanner user={user} notify={notify} />
     {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")}>×</button></div>}
     <main><Routes>
       <Route path="/" element={<HomePage addPlant={garden.addPlant} notify={notify} authenticated={Boolean(user)} />} />
@@ -50,7 +47,6 @@ function App() {
       <Route path="/ajustes" element={<ProtectedRoute><SettingsPage notify={notify} /></ProtectedRoute>} />
       <Route path="/acceso" element={<AuthPage notify={notify} />} />
       <Route path="/restablecer" element={<ResetPasswordPage notify={notify} />} />
-      <Route path="/verificar" element={<VerifyEmailPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes></main>
     <PlantChatbot plants={garden.plants} authenticated={Boolean(user)} notify={notify} />
