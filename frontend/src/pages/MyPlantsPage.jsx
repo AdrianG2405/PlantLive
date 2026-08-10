@@ -68,7 +68,7 @@ export function MyPlantsPage({
 
       {loadingPlants ? <div className="route-loading"><span className="spinner dark-spinner" /> Cargando tu jardín…</div> :
         visiblePlants.length ? <div className="modern-garden-grid">{visiblePlants.map((plant, index) => <motion.button className="modern-plant-card" key={plant.instanceId} onClick={() => setSelected(plant)} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * .04 }}>
-          <div className="modern-plant-photo">{plant.imagen ? <img src={plant.imagen} alt={plant.nickname || plant.nombreComun} /> : <span><Leaf size={40} /> Sin fotografía</span>}<span className="plant-status"><i /> {plant.collectionStatus === "wishlist" ? "En deseos" : "En seguimiento"}</span></div>
+          <div className="modern-plant-photo">{(plant.plantPhoto || plant.gallery?.[0] || plant.imagen) ? <img src={plant.plantPhoto || plant.gallery?.[0] || plant.imagen} alt={plant.nickname || plant.nombreComun} /> : <span><Leaf size={40} /> Sin fotografía</span>}<span className="plant-status"><i /> {plant.collectionStatus === "wishlist" ? "En deseos" : "En seguimiento"}</span></div>
           <div className="modern-plant-info"><small>{plant.categoria || "MI PLANTA"}</small><h3>{plant.nickname || plant.nombreComun}</h3><i>{plant.nombreCientifico}</i><div><span><Droplets size={15} /> Próximo riego</span><b>{plant.nextWater ? new Date(`${plant.nextWater}T12:00`).toLocaleDateString("es-ES", { day: "numeric", month: "short" }) : "Por definir"}</b></div></div>
         </motion.button>)}</div> :
         plants.length ? <div className="empty small">No hay plantas que coincidan con “{filter}”.</div> :
@@ -79,6 +79,6 @@ export function MyPlantsPage({
       <div className="modern-agenda">{upcoming.length ? upcoming.slice(0, 6).map((item) => <article key={item.id}><time><b>{new Date(`${item.date}T12:00`).toLocaleDateString("es-ES", { day: "2-digit" })}</b><small>{new Date(`${item.date}T12:00`).toLocaleDateString("es-ES", { month: "short" })}</small></time><span className="agenda-care-icon">{item.icon}</span><div><b>{item.action}</b><small>{item.plant}</small></div><button onClick={() => markDone(item)} title="Marcar como realizado"><Check size={17} /></button></article>) : <div className="agenda-empty"><CalendarDays size={30} /><p>Añade una planta para crear automáticamente sus próximos cuidados.</p></div>}</div>
     </section>
 
-    {selected && <PlantModal plant={plants.find((plant) => plant.instanceId === selected.instanceId) || selected} onClose={() => setSelected(null)} onUpdate={updatePlant} onRefreshCare={refreshPlantCare} onRemove={removePlant} />}
+    {selected && <PlantModal plant={plants.find((plant) => plant.instanceId === selected.instanceId) || selected} onClose={() => setSelected(null)} onUpdate={updatePlant} onRefreshCare={refreshPlantCare} onRemove={removePlant} notify={notify} />}
   </div>;
 }

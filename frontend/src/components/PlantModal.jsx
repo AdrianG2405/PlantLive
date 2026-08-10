@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Bug, CalendarDays, Camera, Check, Droplets, FlaskConical, GitBranch, History, ImagePlus, MessageCircle, RefreshCw, Scissors, Sprout, X } from "lucide-react";
-import { seasonalCareDays, userDataApi } from "../services/plantliveApi";
+import { askPlantLive, seasonalCareDays, userDataApi } from "../services/plantliveApi";
 
 const careTypes = [
   ["water", "Riego", Droplets], ["fertilize", "Abono", FlaskConical],
@@ -15,13 +15,30 @@ const nextDateFrom = (date, days) => {
   return next.toISOString().slice(0, 10);
 };
 
-export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }) {
+const prepareEvolutionPhoto = (file) => new Promise((resolve, reject) => {
+  const image = new Image(), source = URL.createObjectURL(file);
+  image.onload = () => {
+    const scale = Math.min(1, 1100 / Math.max(image.width, image.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(image.width * scale); canvas.height = Math.round(image.height * scale);
+    canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(source);
+    canvas.toBlob((blob) => blob ? resolve({ blob, dataUrl: canvas.toDataURL("image/jpeg", .78) }) : reject(new Error("No se pudo preparar la fotografía.")), "image/jpeg", .78);
+  };
+  image.onerror = () => { URL.revokeObjectURL(source); reject(new Error("No se pudo leer la fotografía.")); };
+  image.src = source;
+});
+
+const EvolutionPhotoActions = ({ onPhoto }) => <div className="evolution-photo-actions"><label><Camera size={15} /> Hacer foto<input type="file" accept="image/*" capture="environment" onChange={onPhoto} /></label><label><ImagePlus size={15} /> Galería<input type="file" accept="image/jpeg,image/png,image/webp" onChange={onPhoto} /></label></div>;
+
+export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, notify }) {
   const [draft, setDraft] = useState(plant);
   const [history, setHistory] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [refreshingCare, setRefreshingCare] = useState(false);
   const [treatment, setTreatment] = useState({ problem: "", product: "", dose: "", date: new Date().toISOString().slice(0, 10) });
   const [propagation, setPropagation] = useState({ name: "", medium: "agua", startedAt: new Date().toISOString().slice(0, 10), status: "iniciado" });
+  const [analyzingLog, setAnalyzingLog] = useState("");
   useEffect(() => {
     setDraft(plant);
     if (plant?.serverId) userDataApi.careHistory(plant.serverId).then(setHistory).catch(() => {});
@@ -56,7 +73,7 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }
         setUploading(true);
         try {
           const { url: storedUrl } = await userDataApi.uploadPhoto(new File([blob], "plant.jpg", { type: "image/jpeg" }));
-          change({ gallery: [...(draft.gallery || []), storedUrl] });
+          change({ gallery: [...(draft.gallery || []), storedUrl], plantPhoto: storedUrl });
         } finally { setUploading(false); }
       }, "image/jpeg", .78);
     };
@@ -64,7 +81,8 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }
   };
   const removePhoto = async (index) => {
     const url = (draft.gallery || [])[index];
-    change({ gallery: (draft.gallery || []).filter((_, itemIndex) => itemIndex !== index) });
+    const gallery = (draft.gallery || []).filter((_, itemIndex) => itemIndex !== index);
+    change({ gallery, ...(url === draft.plantPhoto ? { plantPhoto: gallery[0] || null } : {}) });
     if (url && !url.startsWith("data:")) await userDataApi.removePhoto(url).catch(() => {});
   };
   const refreshCare = async () => {
@@ -103,6 +121,25 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }
     change({ propagations: [{ ...propagation, id: globalThis.crypto?.randomUUID?.() || Date.now() }, ...(draft.propagations || [])] });
     setPropagation({ name: "", medium: "agua", startedAt: new Date().toISOString().slice(0, 10), status: "iniciado" });
   };
+  const addEvolutionPhoto = async (kind, item, event) => {
+    const file = event.target.files?.[0]; event.target.value = "";
+    if (!file) return;
+    const key = `${kind}-${item.id}`;
+    setAnalyzingLog(key);
+    try {
+      const { blob, dataUrl } = await prepareEvolutionPhoto(file);
+      const { url } = await userDataApi.uploadPhoto(new File([blob], `${kind}.jpg`, { type: "image/jpeg" }));
+      const question = kind === "treatment"
+        ? `Analiza esta evolución de ${item.problem}. Indica si observas señales compatibles con alguna plaga o enfermedad, qué debo hacer ahora y qué vigilar. Ten en cuenta el tratamiento: ${item.product || "ninguno indicado"}, dosis: ${item.dose || "no indicada"}. No afirmes un diagnóstico si la foto no basta.`
+        : `Analiza la evolución de este esqueje de ${draft.nombreCientifico}, iniciado en ${item.medium} el ${item.startedAt}. Di claramente si parece listo para pasar a tierra, si aún le falta tiempo y qué señales concretas debo esperar. No inventes raíces que no sean visibles.`;
+      const result = await askPlantLive({ pregunta: question, planta: draft.nombreCientifico, contexto: JSON.stringify({ maceta: draft.potSize, sustrato: draft.currentSubstrate }), imagen: dataUrl });
+      const evolution = [...(item.evolution || []), { id: globalThis.crypto?.randomUUID?.() || Date.now(), date: new Date().toISOString().slice(0, 10), url, analysis: result.respuesta }];
+      const field = kind === "treatment" ? "treatments" : "propagations";
+      change({ [field]: (draft[field] || []).map((entry) => entry.id === item.id ? { ...entry, evolution } : entry) });
+      notify?.(kind === "treatment" ? "Evolución analizada y guardada." : "Esqueje analizado y guardado.");
+    } catch (error) { notify?.(error.message); }
+    finally { setAnalyzingLog(""); }
+  };
   return <div className="modal-backdrop" onClick={onClose}><section className="modal plant-profile" onClick={(event) => event.stopPropagation()}>
     <button className="close" onClick={onClose} aria-label="Cerrar">×</button><span className="kicker">FICHA DE CUIDADOS</span>
     <input className="nickname" value={draft.nickname} onChange={(event) => change({ nickname: event.target.value })} /><i>{draft.nombreCientifico}</i>
@@ -127,8 +164,8 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }
     <section className="care-history"><h3><History size={18} /> Registrar cuidado</h3><div className="care-buttons">{careTypes.map(([type, label, Icon]) => <button key={type} onClick={() => addCare(type)}><Icon size={16} /> {label}</button>)}</div>
       {!!history.length && <div className="care-timeline">{history.slice(0, 8).map((item) => <p key={item.id}><b>{labels[item.type] || item.type}</b><span>{new Date(item.completedAt).toLocaleDateString("es-ES")}</span></p>)}</div>}
     </section>
-    <section className="plant-log-section"><h3><Bug size={18} /> Problemas y tratamientos</h3><form className="plant-log-form" onSubmit={addTreatment}><input required value={treatment.problem} onChange={(event) => setTreatment({ ...treatment, problem: event.target.value })} placeholder="Plaga, hongo o síntoma" /><input value={treatment.product} onChange={(event) => setTreatment({ ...treatment, product: event.target.value })} placeholder="Producto o actuación" /><input value={treatment.dose} onChange={(event) => setTreatment({ ...treatment, dose: event.target.value })} placeholder="Dosis aplicada" /><input type="date" value={treatment.date} onChange={(event) => setTreatment({ ...treatment, date: event.target.value })} /><button>Añadir</button></form>{(draft.treatments || []).map((item) => <article key={item.id}><div><b>{item.problem}</b><small>{item.date} · {item.product || "Sin producto"}{item.dose ? ` · ${item.dose}` : ""}</small></div><button onClick={() => change({ treatments: draft.treatments.filter((entry) => entry.id !== item.id) })}>Eliminar</button></article>)}</section>
-    <section className="plant-log-section"><h3><GitBranch size={18} /> Esquejes y propagación</h3><form className="plant-log-form propagation-form" onSubmit={addPropagation}><input required value={propagation.name} onChange={(event) => setPropagation({ ...propagation, name: event.target.value })} placeholder="Nombre del esqueje" /><select value={propagation.medium} onChange={(event) => setPropagation({ ...propagation, medium: event.target.value })}><option value="agua">En agua</option><option value="sustrato">En sustrato</option><option value="semihidro">Semihidroponía</option></select><input type="date" value={propagation.startedAt} onChange={(event) => setPropagation({ ...propagation, startedAt: event.target.value })} /><button>Añadir</button></form>{(draft.propagations || []).map((item) => <article key={item.id}><div><b>{item.name}</b><small>Desde {item.startedAt} · {item.medium}</small></div><select value={item.status} onChange={(event) => change({ propagations: draft.propagations.map((entry) => entry.id === item.id ? { ...entry, status: event.target.value } : entry) })}><option value="iniciado">Iniciado</option><option value="con-raices">Con raíces</option><option value="plantado">Plantado</option></select></article>)}</section>
+    <section className="plant-log-section"><h3><Bug size={18} /> Problemas, plagas y tratamientos</h3><p className="plant-log-help">Añade fotos con el paso de los días para comparar la evolución y recibir orientación sobre los siguientes pasos.</p><form className="plant-log-form" onSubmit={addTreatment}><input required value={treatment.problem} onChange={(event) => setTreatment({ ...treatment, problem: event.target.value })} placeholder="Plaga, hongo o síntoma" /><input value={treatment.product} onChange={(event) => setTreatment({ ...treatment, product: event.target.value })} placeholder="Producto o actuación" /><input value={treatment.dose} onChange={(event) => setTreatment({ ...treatment, dose: event.target.value })} placeholder="Dosis aplicada" /><input type="date" value={treatment.date} onChange={(event) => setTreatment({ ...treatment, date: event.target.value })} /><button>Añadir</button></form>{(draft.treatments || []).map((item) => <article className="plant-log-entry" key={item.id}><header><div><b>{item.problem}</b><small>{item.date} · {item.product || "Sin producto"}{item.dose ? ` · ${item.dose}` : ""}</small></div><button onClick={() => change({ treatments: draft.treatments.filter((entry) => entry.id !== item.id) })}>Eliminar</button></header><EvolutionPhotoActions onPhoto={(event) => addEvolutionPhoto("treatment", item, event)} />{analyzingLog === `treatment-${item.id}` && <div className="log-analysis-loading"><span className="spinner dark-spinner" /> Analizando posibles plagas y evolución…</div>}<div className="evolution-timeline">{(item.evolution || []).map((entry) => <figure key={entry.id}><img src={entry.url} alt={`Evolución de ${item.problem}`} /><figcaption><b>{entry.date}</b><p>{entry.analysis}</p></figcaption></figure>)}</div></article>)}</section>
+    <section className="plant-log-section"><h3><GitBranch size={18} /> Esquejes y propagación</h3><p className="plant-log-help">Fotografía las raíces y PlantLive te orientará sobre si puede pasar a tierra o si aún necesita tiempo.</p><form className="plant-log-form propagation-form" onSubmit={addPropagation}><input required value={propagation.name} onChange={(event) => setPropagation({ ...propagation, name: event.target.value })} placeholder="Nombre del esqueje" /><select value={propagation.medium} onChange={(event) => setPropagation({ ...propagation, medium: event.target.value })}><option value="agua">En agua</option><option value="sustrato">En sustrato</option><option value="semihidro">Semihidroponía</option></select><input type="date" value={propagation.startedAt} onChange={(event) => setPropagation({ ...propagation, startedAt: event.target.value })} /><button>Añadir</button></form>{(draft.propagations || []).map((item) => <article className="plant-log-entry" key={item.id}><header><div><b>{item.name}</b><small>Desde {item.startedAt} · {item.medium}</small></div><select value={item.status} onChange={(event) => change({ propagations: draft.propagations.map((entry) => entry.id === item.id ? { ...entry, status: event.target.value } : entry) })}><option value="iniciado">Iniciado</option><option value="con-raices">Con raíces</option><option value="plantado">Plantado</option></select></header><EvolutionPhotoActions onPhoto={(event) => addEvolutionPhoto("propagation", item, event)} />{analyzingLog === `propagation-${item.id}` && <div className="log-analysis-loading"><span className="spinner dark-spinner" /> Comprobando raíces y madurez…</div>}<div className="evolution-timeline">{(item.evolution || []).map((entry) => <figure key={entry.id}><img src={entry.url} alt={`Evolución de ${item.name}`} /><figcaption><b>{entry.date}</b><p>{entry.analysis}</p></figcaption></figure>)}</div></article>)}</section>
     <label className="notes">Notas<textarea value={draft.notes || ""} onChange={(event) => change({ notes: event.target.value })} placeholder="Cambios observados, tratamientos, preferencias…" /></label>
     <button className="danger" onClick={() => { if (window.confirm(`¿Eliminar ${draft.nickname || draft.nombreComun} de Mis plantas?`)) { onRemove(draft.instanceId); onClose(); } }}>Eliminar de Mis plantas</button>
   </section></div>;
