@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { articleBySlug } from "../data/blogArticles";
 
 const SITE = "https://www.plantlive.es";
 const DEFAULT = {
@@ -12,7 +13,6 @@ const pages = {
   "/diagnostico": { title: "Diagnostica problemas y plagas en tus plantas · PlantLive", description: "Añade fotografías y síntomas para obtener orientación sobre posibles plagas, enfermedades y cuidados para tu planta." },
   "/chatbot": { title: "Chatbot para el cuidado de plantas · PlantLive", description: "Pregunta sobre riego, luz, abono, plagas o cualquier duda relacionada con tus plantas." },
   "/blog": { title: "Blog sobre cuidado de plantas · PlantLive", description: "Guías y consejos prácticos para cuidar mejor tus plantas durante todo el año." },
-  "/blog/cuidar-plantas-vacaciones": { title: "Cómo cuidar tus plantas durante las vacaciones · PlantLive", description: "Consejos para mantener tus plantas hidratadas y sanas cuando te vas de vacaciones." },
   "/sobre-nosotros": { title: "Sobre PlantLive", description: "Conoce PlantLive y nuestra forma de ayudarte a cuidar tus plantas con información y seguimiento personalizados." },
   "/privacidad": { title: "Política de privacidad · PlantLive", description: "Información sobre privacidad y tratamiento de datos en PlantLive." },
   "/condiciones": { title: "Condiciones de uso · PlantLive", description: "Condiciones aplicables al uso de PlantLive." },
@@ -34,7 +34,9 @@ function setMeta(name, content, property = false) {
 export function SeoManager() {
   const { pathname } = useLocation();
   useEffect(() => {
-    const page = pages[pathname] || DEFAULT;
+    const blogSlug = pathname.startsWith("/blog/") ? pathname.slice(6) : "";
+    const article = articleBySlug[blogSlug];
+    const page = article ? { title: `${article.title} · PlantLive`, description: article.description } : (pages[pathname] || DEFAULT);
     const canonicalUrl = `${SITE}${pathname === "/" ? "" : pathname}`;
     document.title = page.title;
     setMeta("description", page.description);

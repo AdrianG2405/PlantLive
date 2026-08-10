@@ -24,7 +24,7 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { TermsPage } from "./pages/TermsPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { ChatPage } from "./pages/ChatPage";
-import { BlogPage, VacationBlogPage } from "./pages/BlogPage";
+import { BlogArticlePage, BlogPage } from "./pages/BlogPage";
 
 function App() {
   const { user } = useAuth();
@@ -57,7 +57,7 @@ function App() {
       <Route path="/verificar-email" element={<VerifyEmailPage />} />
       <Route path="/chatbot" element={<ChatPage />} />
       <Route path="/blog" element={<BlogPage />} />
-      <Route path="/blog/cuidar-plantas-vacaciones" element={<VacationBlogPage />} />
+      <Route path="/blog/:slug" element={<BlogArticlePage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes></main>
     <PlantChatbot plants={garden.plants} authenticated={Boolean(user)} notify={notify} />

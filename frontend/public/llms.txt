@@ -9,6 +9,11 @@ PlantLive es una aplicación web en español para identificar plantas, organizar
 - [Chatbot de PlantLive](https://www.plantlive.es/chatbot): ayuda sobre riego, luz, abono y cuidados.
 - [Blog de cuidado de plantas](https://www.plantlive.es/blog): guías prácticas de jardinería doméstica.
 - [Cuidar plantas durante las vacaciones](https://www.plantlive.es/blog/cuidar-plantas-vacaciones): consejos para mantener las plantas hidratadas durante una ausencia.
+- [Cuidado de plantas de interior](https://www.plantlive.es/blog/cuidado-plantas-interior): guía general sobre luz, riego, sustrato, abono y revisiones.
+- [Hojas amarillas en plantas](https://www.plantlive.es/blog/hojas-amarillas-plantas): causas frecuentes y comprobaciones recomendadas.
+- [Elegir maceta](https://www.plantlive.es/blog/elegir-maceta-planta): tamaño, material y drenaje.
+- [Elegir sustrato](https://www.plantlive.es/blog/mejor-sustrato-plantas-interior): aireación y retención según el tipo de planta.
+- [Esquejes de agua a tierra](https://www.plantlive.es/blog/esquejes-agua-pasar-tierra): raíces, maceta y transición.
 - [Sobre PlantLive](https://www.plantlive.es/sobre-nosotros): propósito y funcionamiento del proyecto.
 
 ## Información y contacto
