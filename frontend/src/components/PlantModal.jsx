@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bug, CalendarDays, Camera, Check, Droplets, FlaskConical, History, ImagePlus, MessageCircle, RefreshCw, Scissors, Sprout, X } from "lucide-react";
 import { askPlantLive, seasonalCareDays, userDataApi } from "../services/plantliveApi";
 
@@ -38,6 +38,7 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
   const [refreshingCare, setRefreshingCare] = useState(false);
   const [treatment, setTreatment] = useState({ problem: "", product: "", dose: "", date: new Date().toISOString().slice(0, 10) });
   const [analyzingLog, setAnalyzingLog] = useState("");
+  const profileDrag = useRef(null);
   useEffect(() => {
     setDraft(plant);
     if (plant?.serverId) userDataApi.careHistory(plant.serverId).then(setHistory).catch(() => {});
@@ -91,13 +92,31 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
   const removePhoto = async (index) => {
     const url = (draft.gallery || [])[index];
     const gallery = (draft.gallery || []).filter((_, itemIndex) => itemIndex !== index);
-    change({ gallery, ...(url === draft.plantPhoto ? { plantPhoto: gallery[0] || null } : {}) });
+    change({ gallery, ...(url === draft.plantPhoto ? { plantPhoto: gallery[0] || null, profilePhotoPosition: { x: 50, y: 50 } } : {}) });
     if (url && !url.startsWith("data:")) await userDataApi.removePhoto(url).catch(() => {});
   };
   const chooseProfilePhoto = (photo) => {
-    change({ plantPhoto: photo });
+    change({ plantPhoto: photo, profilePhotoPosition: { x: 50, y: 50 } });
     notify?.("Foto de perfil actualizada.");
   };
+  const profilePosition = draft.profilePhotoPosition || { x: 50, y: 50 };
+  const startProfileDrag = (event) => {
+    profileDrag.current = { clientX: event.clientX, clientY: event.clientY, x: profilePosition.x, y: profilePosition.y };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+  const moveProfilePhoto = (event) => {
+    if (!profileDrag.current) return;
+    const x = Math.max(0, Math.min(100, profileDrag.current.x - (event.clientX - profileDrag.current.clientX) * .75));
+    const y = Math.max(0, Math.min(100, profileDrag.current.y - (event.clientY - profileDrag.current.clientY) * .75));
+    setDraft((current) => ({ ...current, profilePhotoPosition: { x, y } }));
+  };
+  const finishProfileDrag = () => {
+    if (!profileDrag.current) return;
+    profileDrag.current = null;
+    onUpdate(draft.instanceId, { profilePhotoPosition: draft.profilePhotoPosition || { x: 50, y: 50 } });
+    notify?.("Encuadre de perfil guardado.");
+  };
+  const centerProfilePhoto = () => change({ profilePhotoPosition: { x: 50, y: 50 } });
   const refreshCare = async () => {
     setRefreshingCare(true);
     try {
@@ -150,7 +169,7 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
   return <div className="modal-backdrop" onClick={onClose}><section className="modal plant-profile" onClick={(event) => event.stopPropagation()}>
     <button className="close" onClick={onClose} aria-label="Cerrar">×</button><span className="kicker">FICHA DE CUIDADOS</span>
     <input className="nickname" value={draft.nickname} onChange={(event) => change({ nickname: event.target.value })} /><i>{draft.nombreCientifico}</i>
-    <section className="plant-gallery profile-photo-editor"><div className="profile-photo-summary"><div className="profile-photo-ring">{(draft.plantPhoto || draft.gallery?.[0] || draft.imagen) ? <img src={draft.plantPhoto || draft.gallery?.[0] || draft.imagen} alt={`Foto de perfil de ${draft.nickname}`} /> : <Leaf size={38} />}</div><div><span className="kicker">FOTO DE PERFIL</span><h3>Editar foto de perfil de la planta</h3><p>Esta imagen aparecerá como portada en Mis plantas.</p></div></div><div className="plant-gallery-head"><div><h3>Galería y evolución</h3><small>Añade hasta 4 fotos, elige la portada o elimina las que no quieras.</small></div><div className="plant-gallery-actions"><label className={(draft.gallery || []).length >= 4 ? "disabled" : ""}><Camera size={16} /> Hacer foto<input disabled={(draft.gallery || []).length >= 4} type="file" accept="image/*" capture="environment" onChange={addPhoto} /></label><label className={(draft.gallery || []).length >= 4 ? "disabled" : ""}><ImagePlus size={16} /> Elegir de galería<input disabled={(draft.gallery || []).length >= 4} type="file" accept="image/jpeg,image/png,image/webp" onChange={addPhoto} /></label></div></div>
+    <section className="plant-gallery profile-photo-editor"><div className="profile-photo-summary"><div className="profile-photo-ring" onPointerDown={startProfileDrag} onPointerMove={moveProfilePhoto} onPointerUp={finishProfileDrag} onPointerCancel={finishProfileDrag}>{(draft.plantPhoto || draft.gallery?.[0] || draft.imagen) ? <img draggable="false" style={{ objectPosition: `${profilePosition.x}% ${profilePosition.y}%` }} src={draft.plantPhoto || draft.gallery?.[0] || draft.imagen} alt={`Foto de perfil de ${draft.nickname}`} /> : <Leaf size={38} />}</div><div><span className="kicker">FOTO DE PERFIL</span><h3>Editar foto de perfil de la planta</h3><p>Arrastra la foto dentro del círculo hasta dejar visible la parte que quieras. La posición quedará guardada.</p><button type="button" className="center-profile-photo" onClick={centerProfilePhoto}>Centrar foto</button></div></div><div className="plant-gallery-head"><div><h3>Galería y evolución</h3><small>Añade hasta 4 fotos, elige la portada o elimina las que no quieras.</small></div><div className="plant-gallery-actions"><label className={(draft.gallery || []).length >= 4 ? "disabled" : ""}><Camera size={16} /> Hacer foto<input disabled={(draft.gallery || []).length >= 4} type="file" accept="image/*" capture="environment" onChange={addPhoto} /></label><label className={(draft.gallery || []).length >= 4 ? "disabled" : ""}><ImagePlus size={16} /> Elegir de galería<input disabled={(draft.gallery || []).length >= 4} type="file" accept="image/jpeg,image/png,image/webp" onChange={addPhoto} /></label></div></div>
       {uploading && <div className="route-loading gallery-loading"><span className="spinner dark-spinner" /> Guardando fotografía…</div>}
       {(draft.gallery || []).length ? <div className="plant-gallery-grid profile-gallery-grid">{draft.gallery.map((photo, index) => <figure className={photo === draft.plantPhoto ? "selected-profile" : ""} key={photo}><img src={photo} alt={`Evolución ${index + 1}`} />{photo === draft.plantPhoto && <span className="profile-photo-badge">Perfil</span>}<div className="profile-gallery-actions"><button type="button" className="choose-profile" onClick={() => chooseProfilePhoto(photo)}>Usar de perfil</button><button type="button" className="remove-gallery-photo" onClick={() => removePhoto(index)} aria-label="Eliminar foto"><X size={14} /></button></div><figcaption>Foto {index + 1}</figcaption></figure>)}</div> : !uploading && <div className="plant-gallery-empty"><Camera size={25} /><span>Añade una primera fotografía: se usará automáticamente como perfil.</span></div>}
     </section>
