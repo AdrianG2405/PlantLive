@@ -190,6 +190,20 @@ async function searchIndoorRetailCatalog(normalizedInput) {
   return withPhoto.length >= Math.min(4, results.length) ? withPhoto : results;
 }
 
+async function searchNurseryCatalog(query) {
+  const data = await request("/plantas/buscar-ia", {
+    method: "POST", body: JSON.stringify({ consulta: query }), timeout: 45000,
+  });
+  const results = Array.isArray(data.resultados) ? data.resultados : [];
+  return Promise.all(results.map(async (plant, index) => ({
+    ...plant,
+    id: `nursery-${normalizeTaxon(plant.nombreCientifico).replace(/\s/g, "-")}-${index}`,
+    categoria: plant.categoria || "interior",
+    descripcion: plant.descripcion || `${plant.nombreComun}, planta habitual en cultivo ornamental.`,
+    imagen: await retailPhoto(plant.nombreCientifico),
+  })));
+}
+
 // iNaturalist ordena por observaciones silvestres. Esta lista hace que las
 // especies habituales en viveros aparezcan antes sin ocultar el catálogo global.
 const COMMERCIAL_SPECIES = [
@@ -353,6 +367,14 @@ async function searchRetailGroup(groupNames) {
 
 export async function searchPlants(query) {
   const normalizedInput = normalizeTaxon(query);
+  try {
+    const nurseryResults = await searchNurseryCatalog(query);
+    const withPhoto = nurseryResults.filter((plant) => plant.imagen);
+    if (withPhoto.length) return withPhoto;
+    if (nurseryResults.length) return nurseryResults;
+  } catch {
+    // El catálogo botánico local y público sigue disponible si la IA no responde.
+  }
   const indoorRetailResults = await searchIndoorRetailCatalog(normalizedInput);
   const retailGroup = RETAIL_GROUPS[normalizedInput];
   if (indoorRetailResults.length && !retailGroup) {

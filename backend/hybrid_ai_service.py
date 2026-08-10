@@ -15,6 +15,45 @@ def gemini_configured() -> bool:
     return bool(os.getenv("GEMINI_API_KEY"))
 
 
+def buscar_plantas_avanzado(consulta: str) -> list[dict]:
+    model = os.getenv("GEMINI_MODEL", "").strip() or "gemini-3.6-flash"
+    prompt = f"""Actúa como responsable del catálogo de un vivero español.
+El usuario busca: {consulta!r}
+
+Devuelve primero las plantas de interior y variedades comerciales que una persona
+encontraría normalmente en viveros y tiendas, no especies silvestres raras. Si la
+consulta es un grupo (calatea, ficus, orquídea, cactus, helecho, etc.), incluye de
+8 a 16 especies o cultivares populares. Si es una planta concreta, ponla primero
+y añade como máximo 5 coincidencias comerciales cercanas. Reconoce nombres comunes,
+sinónimos botánicos, errores ortográficos y nombres antiguos. No inventes taxones.
+
+Devuelve exclusivamente un array JSON. Cada objeto tendrá: nombreComun,
+nombreCientifico, categoria (interior, exterior o ambas) y descripcion. En los
+cultivares conserva el cultivar entre comillas simples. Ordena por popularidad en
+viveros españoles y utilidad para la búsqueda, nunca por observaciones silvestres."""
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {
+            "maxOutputTokens": 1800,
+            "responseMimeType": "application/json",
+            "thinkingConfig": {"thinkingLevel": "minimal"},
+        },
+    }
+    query = urllib.parse.urlencode({"key": os.environ["GEMINI_API_KEY"]})
+    response = _post_json(f"{GEMINI_URL}/{model}:generateContent?{query}", payload, {}, 60)
+    candidates = response.get("candidates", [])
+    parts = candidates[0].get("content", {}).get("parts", []) if candidates else []
+    text = "".join(part.get("text", "") for part in parts).strip()
+    try:
+        result = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise RuntimeError("Gemini no devolvió un catálogo válido") from error
+    valid = [item for item in result if isinstance(item, dict) and item.get("nombreCientifico") and item.get("nombreComun")]
+    if not valid:
+        raise RuntimeError("No se encontraron plantas comerciales para esa búsqueda")
+    return valid[:16]
+
+
 def _post_json(url: str, payload: dict, headers: dict, timeout: int = 75) -> dict:
     request = urllib.request.Request(
         url, data=json.dumps(payload).encode("utf-8"),

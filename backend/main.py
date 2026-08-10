@@ -26,7 +26,7 @@ logger = logging.getLogger("plantlive")
 from ai_service import buscar_plantas_con_ia, crear_ficha_planta, diagnosticar_imagen, preguntar_a_plantlive
 from auth import create_session, get_current_user, hash_password, verify_password
 from database import Base, apply_compatible_schema_updates, engine, get_db
-from hybrid_ai_service import advanced_ai_configured, crear_ficha_avanzada, diagnosticar_avanzado, gemini_configured, preguntar_avanzado
+from hybrid_ai_service import advanced_ai_configured, buscar_plantas_avanzado, crear_ficha_avanzada, diagnosticar_avanzado, gemini_configured, preguntar_avanzado
 from models import ApiUsage, AuthSession, CareEvent, CustomTask, DiagnosisHistory, EmailVerificationToken, LegalAcceptance, NotificationDelivery, PasswordResetToken, Planta, PushSubscription, User, UserFeedback, UserPlant, UserSettings
 from storage_service import UPLOAD_DIR, delete_plant_photo, save_plant_photo
 from email_service import EmailDeliveryError, send_email, send_email_verification, send_password_reset
@@ -539,8 +539,9 @@ def buscar_planta_ia(datos: dict, db: Session = Depends(get_db), user: User = De
     if len(consulta) < 2:
         raise HTTPException(400, "Escribe el nombre de una planta")
     try:
-        return {"resultados": buscar_plantas_con_ia(consulta)}
-    except ValueError as error:
+        resultados = buscar_plantas_avanzado(consulta) if gemini_configured() else buscar_plantas_con_ia(consulta)
+        return {"resultados": resultados}
+    except (ValueError, RuntimeError) as error:
         raise HTTPException(502, str(error)) from error
 
 
