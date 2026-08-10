@@ -5,6 +5,7 @@ import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
 import { PlantChatbot } from "./components/PlantChatbot";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { SeoManager } from "./components/SeoManager";
 import { AuthProvider } from "./contexts/AuthContext";
 import { useAuth } from "./contexts/authStore";
 import { useCareNotifications } from "./hooks/useCareNotifications";
@@ -36,6 +37,7 @@ function App() {
   const garden = usePlants(user, notify);
   const notifications = useCareNotifications(garden.upcoming, Boolean(user));
   return <div className="app">
+    <SeoManager />
     <Header />
     {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")}>×</button></div>}
     <main><Routes>

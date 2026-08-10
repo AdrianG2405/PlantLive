@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /panel
+Disallow: /plantas
+Disallow: /calendario
+Disallow: /ajustes
+Disallow: /acceso
+Disallow: /restablecer
+Disallow: /verificar-email
+
+Sitemap: https://www.plantlive.es/sitemap.xml
