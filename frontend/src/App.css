@@ -201,6 +201,9 @@ body{background:radial-gradient(circle at 10% 5%,#eef8e8 0,transparent 24%),#f7f
 .crop-grid:before,.crop-grid:after{top:0;bottom:0;width:1px}.crop-grid:before{left:33.333%}.crop-grid:after{left:66.666%}
 .crop-grid i:before,.crop-grid i:after{left:0;right:0;height:1px}.crop-grid i:before{top:33.333%}.crop-grid i:after{top:66.666%}
 .profile-crop-modal>small{display:block;text-align:center;color:var(--muted)}
+.crop-zoom-control{display:grid;grid-template-columns:auto 1fr auto;align-items:end;gap:12px;width:min(470px,100%);margin:15px auto 8px;color:var(--green);font-size:24px;font-weight:800}
+.crop-zoom-control label{display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:11px;font-weight:750;text-align:center}
+.crop-zoom-control input{width:100%;accent-color:#c9a53d;cursor:pointer}
 .profile-crop-modal>footer{display:flex;justify-content:flex-end;gap:9px;width:auto;height:auto;min-height:0;margin-top:20px;padding:0;background:transparent;text-align:left}
 .profile-crop-modal>footer button{display:flex;align-items:center;justify-content:center;gap:6px;border-radius:10px;padding:11px 15px;font-weight:800;cursor:pointer}
 .crop-cancel{border:1px solid var(--line);background:#fff;color:var(--green)}
