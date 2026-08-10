@@ -38,7 +38,8 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
   const [refreshingCare, setRefreshingCare] = useState(false);
   const [treatment, setTreatment] = useState({ problem: "", product: "", dose: "", date: new Date().toISOString().slice(0, 10) });
   const [analyzingLog, setAnalyzingLog] = useState("");
-  const profileDrag = useRef(null);
+  const cropDrag = useRef(null);
+  const [profileCrop, setProfileCrop] = useState(null);
   useEffect(() => {
     setDraft(plant);
     if (plant?.serverId) userDataApi.careHistory(plant.serverId).then(setHistory).catch(() => {});
@@ -96,27 +97,28 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
     if (url && !url.startsWith("data:")) await userDataApi.removePhoto(url).catch(() => {});
   };
   const chooseProfilePhoto = (photo) => {
-    change({ plantPhoto: photo, profilePhotoPosition: { x: 50, y: 50 } });
-    notify?.("Foto de perfil actualizada.");
+    const current = photo === draft.plantPhoto ? (draft.profilePhotoPosition || { x: 50, y: 50 }) : { x: 50, y: 50 };
+    setProfileCrop({ photo, ...current });
   };
   const profilePosition = draft.profilePhotoPosition || { x: 50, y: 50 };
-  const startProfileDrag = (event) => {
-    profileDrag.current = { clientX: event.clientX, clientY: event.clientY, x: profilePosition.x, y: profilePosition.y };
+  const startCropDrag = (event) => {
+    if (!profileCrop) return;
+    cropDrag.current = { clientX: event.clientX, clientY: event.clientY, x: profileCrop.x, y: profileCrop.y };
     event.currentTarget.setPointerCapture?.(event.pointerId);
   };
-  const moveProfilePhoto = (event) => {
-    if (!profileDrag.current) return;
-    const x = Math.max(0, Math.min(100, profileDrag.current.x - (event.clientX - profileDrag.current.clientX) * .75));
-    const y = Math.max(0, Math.min(100, profileDrag.current.y - (event.clientY - profileDrag.current.clientY) * .75));
-    setDraft((current) => ({ ...current, profilePhotoPosition: { x, y } }));
+  const moveCropPhoto = (event) => {
+    if (!cropDrag.current) return;
+    const x = Math.max(0, Math.min(100, cropDrag.current.x - (event.clientX - cropDrag.current.clientX) * .35));
+    const y = Math.max(0, Math.min(100, cropDrag.current.y - (event.clientY - cropDrag.current.clientY) * .35));
+    setProfileCrop((current) => ({ ...current, x, y }));
   };
-  const finishProfileDrag = () => {
-    if (!profileDrag.current) return;
-    profileDrag.current = null;
-    onUpdate(draft.instanceId, { profilePhotoPosition: draft.profilePhotoPosition || { x: 50, y: 50 } });
-    notify?.("Encuadre de perfil guardado.");
+  const finishCropDrag = () => { cropDrag.current = null; };
+  const saveProfileCrop = () => {
+    if (!profileCrop) return;
+    change({ plantPhoto: profileCrop.photo, profilePhotoPosition: { x: profileCrop.x, y: profileCrop.y } });
+    setProfileCrop(null);
+    notify?.("Foto de perfil y encuadre guardados.");
   };
-  const centerProfilePhoto = () => change({ profilePhotoPosition: { x: 50, y: 50 } });
   const refreshCare = async () => {
     setRefreshingCare(true);
     try {
@@ -169,7 +171,7 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
   return <div className="modal-backdrop" onClick={onClose}><section className="modal plant-profile" onClick={(event) => event.stopPropagation()}>
     <button className="close" onClick={onClose} aria-label="Cerrar">×</button><span className="kicker">FICHA DE CUIDADOS</span>
     <input className="nickname" value={draft.nickname} onChange={(event) => change({ nickname: event.target.value })} /><i>{draft.nombreCientifico}</i>
-    <section className="plant-gallery profile-photo-editor"><div className="profile-photo-summary"><div className="profile-photo-ring" onPointerDown={startProfileDrag} onPointerMove={moveProfilePhoto} onPointerUp={finishProfileDrag} onPointerCancel={finishProfileDrag}>{(draft.plantPhoto || draft.gallery?.[0] || draft.imagen) ? <img draggable="false" style={{ objectPosition: `${profilePosition.x}% ${profilePosition.y}%` }} src={draft.plantPhoto || draft.gallery?.[0] || draft.imagen} alt={`Foto de perfil de ${draft.nickname}`} /> : <Leaf size={38} />}</div><div><span className="kicker">FOTO DE PERFIL</span><h3>Editar foto de perfil de la planta</h3><p>Arrastra la foto dentro del círculo hasta dejar visible la parte que quieras. La posición quedará guardada.</p><button type="button" className="center-profile-photo" onClick={centerProfilePhoto}>Centrar foto</button></div></div><div className="plant-gallery-head"><div><h3>Galería y evolución</h3><small>Añade hasta 4 fotos, elige la portada o elimina las que no quieras.</small></div><div className="plant-gallery-actions"><label className={(draft.gallery || []).length >= 4 ? "disabled" : ""}><Camera size={16} /> Hacer foto<input disabled={(draft.gallery || []).length >= 4} type="file" accept="image/*" capture="environment" onChange={addPhoto} /></label><label className={(draft.gallery || []).length >= 4 ? "disabled" : ""}><ImagePlus size={16} /> Elegir de galería<input disabled={(draft.gallery || []).length >= 4} type="file" accept="image/jpeg,image/png,image/webp" onChange={addPhoto} /></label></div></div>
+    <section className="plant-gallery profile-photo-editor"><div className="profile-photo-summary"><div className="profile-photo-ring">{(draft.plantPhoto || draft.gallery?.[0] || draft.imagen) ? <img draggable="false" style={{ objectPosition: `${profilePosition.x}% ${profilePosition.y}%` }} src={draft.plantPhoto || draft.gallery?.[0] || draft.imagen} alt={`Foto de perfil de ${draft.nickname}`} /> : <Leaf size={38} />}</div><div><span className="kicker">FOTO DE PERFIL</span><h3>Editar foto de perfil de la planta</h3><p>Pulsa «Usar de perfil» en una imagen para abrir el editor grande y ajustar su encuadre.</p></div></div><div className="plant-gallery-head"><div><h3>Galería y evolución</h3><small>Añade hasta 4 fotos, elige la portada o elimina las que no quieras.</small></div><div className="plant-gallery-actions"><label className={(draft.gallery || []).length >= 4 ? "disabled" : ""}><Camera size={16} /> Hacer foto<input disabled={(draft.gallery || []).length >= 4} type="file" accept="image/*" capture="environment" onChange={addPhoto} /></label><label className={(draft.gallery || []).length >= 4 ? "disabled" : ""}><ImagePlus size={16} /> Elegir de galería<input disabled={(draft.gallery || []).length >= 4} type="file" accept="image/jpeg,image/png,image/webp" onChange={addPhoto} /></label></div></div>
       {uploading && <div className="route-loading gallery-loading"><span className="spinner dark-spinner" /> Guardando fotografía…</div>}
       {(draft.gallery || []).length ? <div className="plant-gallery-grid profile-gallery-grid">{draft.gallery.map((photo, index) => <figure className={photo === draft.plantPhoto ? "selected-profile" : ""} key={photo}><img src={photo} alt={`Evolución ${index + 1}`} />{photo === draft.plantPhoto && <span className="profile-photo-badge">Perfil</span>}<div className="profile-gallery-actions"><button type="button" className="choose-profile" onClick={() => chooseProfilePhoto(photo)}>Usar de perfil</button><button type="button" className="remove-gallery-photo" onClick={() => removePhoto(index)} aria-label="Eliminar foto"><X size={14} /></button></div><figcaption>Foto {index + 1}</figcaption></figure>)}</div> : !uploading && <div className="plant-gallery-empty"><Camera size={25} /><span>Añade una primera fotografía: se usará automáticamente como perfil.</span></div>}
     </section>
@@ -193,5 +195,6 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
     <section className="plant-log-section"><h3><Bug size={18} /> Problemas, plagas y tratamientos</h3><p className="plant-log-help">Añade fotos con el paso de los días para comparar la evolución y recibir orientación sobre los siguientes pasos.</p><form className="plant-log-form" onSubmit={addTreatment}><input required value={treatment.problem} onChange={(event) => setTreatment({ ...treatment, problem: event.target.value })} placeholder="Plaga, hongo o síntoma" /><input value={treatment.product} onChange={(event) => setTreatment({ ...treatment, product: event.target.value })} placeholder="Producto o actuación" /><input value={treatment.dose} onChange={(event) => setTreatment({ ...treatment, dose: event.target.value })} placeholder="Dosis aplicada" /><input type="date" value={treatment.date} onChange={(event) => setTreatment({ ...treatment, date: event.target.value })} /><button>Añadir</button></form>{(draft.treatments || []).map((item) => <article className="plant-log-entry" key={item.id}><header><div><b>{item.problem}</b><small>{item.date} · {item.product || "Sin producto"}{item.dose ? ` · ${item.dose}` : ""}</small></div><button onClick={() => change({ treatments: draft.treatments.filter((entry) => entry.id !== item.id) })}>Eliminar</button></header><EvolutionPhotoActions onPhoto={(event) => addEvolutionPhoto("treatment", item, event)} />{analyzingLog === `treatment-${item.id}` && <div className="log-analysis-loading"><span className="spinner dark-spinner" /> Analizando posibles plagas y evolución…</div>}<div className="evolution-timeline">{(item.evolution || []).map((entry) => <figure key={entry.id}><img src={entry.url} alt={`Evolución de ${item.problem}`} /><figcaption><b>{entry.date}</b><p>{entry.analysis}</p></figcaption></figure>)}</div></article>)}</section>
     <label className="notes">Notas<textarea value={draft.notes || ""} onChange={(event) => change({ notes: event.target.value })} placeholder="Cambios observados, tratamientos, preferencias…" /></label>
     <button className="danger" onClick={() => { if (window.confirm(`¿Eliminar ${draft.nickname || draft.nombreComun} de Mis plantas?`)) { onRemove(draft.instanceId); onClose(); } }}>Eliminar de Mis plantas</button>
+    {profileCrop && <div className="profile-crop-backdrop" onClick={() => setProfileCrop(null)}><section className="profile-crop-modal" onClick={(event) => event.stopPropagation()}><header><div><span className="kicker">AJUSTAR FOTO DE PERFIL</span><h3>Mueve la foto dentro de la cuadrícula</h3><p>La zona marcada es exactamente la que se mostrará en el perfil.</p></div><button type="button" onClick={() => setProfileCrop(null)} aria-label="Cerrar"><X size={20} /></button></header><div className="profile-crop-stage" onPointerDown={startCropDrag} onPointerMove={moveCropPhoto} onPointerUp={finishCropDrag} onPointerCancel={finishCropDrag}><img draggable="false" src={profileCrop.photo} alt="Ajustar encuadre" style={{ objectPosition: `${profileCrop.x}% ${profileCrop.y}%` }} /><div className="crop-grid" aria-hidden="true"><i /><i /><i /><i /></div></div><small>Arrastra la imagen con el dedo o el ratón. La cuadrícula permanece fija.</small><footer><button type="button" className="crop-cancel" onClick={() => setProfileCrop(null)}>Cancelar</button><button type="button" className="primary" onClick={saveProfileCrop}><Check size={17} /> Fijar como foto de perfil</button></footer></section></div>}
   </section></div>;
 }
