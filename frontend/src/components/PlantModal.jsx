@@ -58,7 +58,8 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
   const addPhoto = (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file || (draft.gallery || []).length >= 4) return;
+    if (!file || uploading || (draft.gallery || []).length >= 4) return;
+    setUploading(true);
     const image = new Image();
     const url = URL.createObjectURL(file);
     image.onload = () => {
@@ -68,14 +69,22 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
       canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
       canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        setUploading(true);
+        if (!blob) { setUploading(false); notify?.("No se pudo preparar la fotografía. Prueba con una imagen JPG, PNG o WEBP."); return; }
+        const previewUrl = canvas.toDataURL("image/jpeg", .72);
+        const previousGallery = draft.gallery || [];
+        change({ gallery: [...previousGallery, previewUrl], plantPhoto: draft.plantPhoto || previewUrl });
         try {
           const { url: storedUrl } = await userDataApi.uploadPhoto(new File([blob], "plant.jpg", { type: "image/jpeg" }));
-          change({ gallery: [...(draft.gallery || []), storedUrl], plantPhoto: draft.plantPhoto || storedUrl });
-        } catch (error) { notify?.(error.message || "No se pudo guardar la fotografía."); }
+          change({ gallery: [...previousGallery, storedUrl], plantPhoto: draft.plantPhoto || storedUrl });
+          notify?.("Fotografía añadida a la galería.");
+        } catch (error) { notify?.(`${error.message || "No se pudo conectar con el almacenamiento."}. La foto se ha añadido y se guardará con la planta.`); }
         finally { setUploading(false); }
       }, "image/jpeg", .78);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      setUploading(false);
+      notify?.("El móvil no pudo abrir ese formato. Prueba con una imagen JPG, PNG o WEBP.");
     };
     image.src = url;
   };

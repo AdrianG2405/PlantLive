@@ -5,14 +5,25 @@ async function request(path, options) {
   let token = null;
   try { token = localStorage.getItem("plantlive-token"); } catch { /* Storage can be blocked on mobile browsers. */ }
   const isForm = options?.body instanceof FormData;
-  const response = await fetch(`${API}${path}`, {
-    ...options,
-    headers: {
-      ...(options?.body && !isForm ? { "Content-Type": "application/json" } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options?.headers,
-    },
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), options?.timeout || 30000);
+  let response;
+  try {
+    response = await fetch(`${API}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        ...(options?.body && !isForm ? { "Content-Type": "application/json" } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options?.headers,
+      },
+    });
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error("El servidor ha tardado demasiado en responder");
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.detail || "No se pudo completar la solicitud");
   return data;
@@ -57,7 +68,7 @@ export const userDataApi = {
   uploadPhoto: (file) => {
     const body = new FormData();
     body.append("file", file);
-    return request("/user/photos", { method: "POST", body });
+    return request("/user/photos", { method: "POST", body, timeout: 20000 });
   },
   removePhoto: (url) => request("/user/photos", { method: "DELETE", body: JSON.stringify({ url }) }),
 };
