@@ -61,7 +61,7 @@ export function HomePage({ addPlant, notify, authenticated }) {
       const analysisPhotos = await Promise.all([photoForAnalysis(setup.plantPhoto.file), photoForAnalysis(setup.substratePhoto.file)]);
       const context = { tamanoMaceta: setup.potSize, sustratoActual: setup.currentSubstrate, observacion: "La primera foto muestra la planta completa y su maceta; la segunda, la superficie del sustrato. Estimar con prudencia proporción de maceta, retención visible y drenaje sin afirmar lo que no sea observable.", analysisPhotos };
       const completePlant = await createCareProfile(plant, context);
-      await addPlant({ ...completePlant, potSize: setup.potSize, currentSubstrate: setup.currentSubstrate, plantPhoto: plantUpload.url, substratePhoto: substrateUpload.url, gallery: [plantUpload.url, substrateUpload.url] });
+      await addPlant({ ...completePlant, potSize: setup.potSize, currentSubstrate: setup.currentSubstrate, plantPhoto: plantUpload.url, substratePhoto: substrateUpload.url, gallery: [plantUpload.url] });
       notify(completePlant.careProfilePending
         ? `${completePlant.nombreComun} se ha añadido con una ficha inicial.`
         : `${completePlant.nombreComun} se ha añadido a tu jardín.`);

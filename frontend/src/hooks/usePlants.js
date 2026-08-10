@@ -61,8 +61,8 @@ export function usePlants(user, notify) {
       imagen,
       instanceId: globalThis.crypto?.randomUUID?.() || `plant-${Date.now()}`,
       nickname: plant.nombreComun,
-      nextWater: plant.collectionStatus === "wishlist" ? null : datePlus(adjustedWaterDays(plant, new Date(), weatherAdjustment)),
-      nextFeed: plant.collectionStatus === "wishlist" ? null : datePlus(seasonalCareDays(plant, "abono")),
+      nextWater: plant.collectionStatus && plant.collectionStatus !== "active" ? null : datePlus(adjustedWaterDays(plant, new Date(), weatherAdjustment)),
+      nextFeed: plant.collectionStatus && plant.collectionStatus !== "active" ? null : datePlus(seasonalCareDays(plant, "abono")),
       notes: "",
     };
     const saved = await userDataApi.addPlant(item);
@@ -103,7 +103,7 @@ export function usePlants(user, notify) {
     setPlants((current) => current.map((item) => item.instanceId === id ? saved : item));
     return saved;
   };
-  const upcoming = useMemo(() => plants.filter((plant) => plant.collectionStatus !== "wishlist").flatMap((plant) => [
+  const upcoming = useMemo(() => plants.filter((plant) => !plant.collectionStatus || plant.collectionStatus === "active").flatMap((plant) => [
     { id: `${plant.instanceId}-water`, date: plant.nextWater, icon: "💧", action: "Revisar riego", plant: plant.nickname || plant.nombreComun },
     ...(seasonalCareDays(plant, "abono") > 0 ? [
       { id: `${plant.instanceId}-feed`, date: plant.nextFeed, icon: "🧪", action: "Abonar / fertilizar", plant: plant.nickname || plant.nombreComun },

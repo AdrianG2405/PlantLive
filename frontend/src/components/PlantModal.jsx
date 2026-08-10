@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bug, CalendarDays, Camera, Check, Droplets, FlaskConical, GitBranch, History, ImagePlus, MessageCircle, RefreshCw, Scissors, Sprout, X } from "lucide-react";
+import { Bug, CalendarDays, Camera, Check, Droplets, FlaskConical, History, ImagePlus, MessageCircle, RefreshCw, Scissors, Sprout, X } from "lucide-react";
 import { askPlantLive, seasonalCareDays, userDataApi } from "../services/plantliveApi";
 
 const careTypes = [
@@ -37,7 +37,6 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
   const [uploading, setUploading] = useState(false);
   const [refreshingCare, setRefreshingCare] = useState(false);
   const [treatment, setTreatment] = useState({ problem: "", product: "", dose: "", date: new Date().toISOString().slice(0, 10) });
-  const [propagation, setPropagation] = useState({ name: "", medium: "agua", startedAt: new Date().toISOString().slice(0, 10), status: "iniciado" });
   const [analyzingLog, setAnalyzingLog] = useState("");
   useEffect(() => {
     setDraft(plant);
@@ -73,8 +72,9 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
         setUploading(true);
         try {
           const { url: storedUrl } = await userDataApi.uploadPhoto(new File([blob], "plant.jpg", { type: "image/jpeg" }));
-          change({ gallery: [...(draft.gallery || []), storedUrl], plantPhoto: storedUrl });
-        } finally { setUploading(false); }
+          change({ gallery: [...(draft.gallery || []), storedUrl], plantPhoto: draft.plantPhoto || storedUrl });
+        } catch (error) { notify?.(error.message || "No se pudo guardar la fotografía."); }
+        finally { setUploading(false); }
       }, "image/jpeg", .78);
     };
     image.src = url;
@@ -84,6 +84,10 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
     const gallery = (draft.gallery || []).filter((_, itemIndex) => itemIndex !== index);
     change({ gallery, ...(url === draft.plantPhoto ? { plantPhoto: gallery[0] || null } : {}) });
     if (url && !url.startsWith("data:")) await userDataApi.removePhoto(url).catch(() => {});
+  };
+  const chooseProfilePhoto = (photo) => {
+    change({ plantPhoto: photo });
+    notify?.("Foto de perfil actualizada.");
   };
   const refreshCare = async () => {
     setRefreshingCare(true);
@@ -115,12 +119,6 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
     change({ treatments: [{ ...treatment, id: globalThis.crypto?.randomUUID?.() || Date.now() }, ...(draft.treatments || [])] });
     setTreatment({ problem: "", product: "", dose: "", date: new Date().toISOString().slice(0, 10) });
   };
-  const addPropagation = (event) => {
-    event.preventDefault();
-    if (!propagation.name.trim()) return;
-    change({ propagations: [{ ...propagation, id: globalThis.crypto?.randomUUID?.() || Date.now() }, ...(draft.propagations || [])] });
-    setPropagation({ name: "", medium: "agua", startedAt: new Date().toISOString().slice(0, 10), status: "iniciado" });
-  };
   const addEvolutionPhoto = async (kind, item, event) => {
     const file = event.target.files?.[0]; event.target.value = "";
     if (!file) return;
@@ -143,9 +141,9 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
   return <div className="modal-backdrop" onClick={onClose}><section className="modal plant-profile" onClick={(event) => event.stopPropagation()}>
     <button className="close" onClick={onClose} aria-label="Cerrar">×</button><span className="kicker">FICHA DE CUIDADOS</span>
     <input className="nickname" value={draft.nickname} onChange={(event) => change({ nickname: event.target.value })} /><i>{draft.nombreCientifico}</i>
-    <section className="plant-gallery"><div className="plant-gallery-head"><div><h3>Galería y evolución</h3><small>Guarda hasta 4 fotografías para comparar su estado.</small></div><div className="plant-gallery-actions"><label><Camera size={16} /> Hacer foto<input type="file" accept="image/*" capture="environment" onChange={addPhoto} /></label><label><ImagePlus size={16} /> Elegir de galería<input type="file" accept="image/jpeg,image/png,image/webp" onChange={addPhoto} /></label></div></div>
+    <section className="plant-gallery profile-photo-editor"><div className="profile-photo-summary"><div className="profile-photo-ring">{(draft.plantPhoto || draft.gallery?.[0] || draft.imagen) ? <img src={draft.plantPhoto || draft.gallery?.[0] || draft.imagen} alt={`Foto de perfil de ${draft.nickname}`} /> : <Leaf size={38} />}</div><div><span className="kicker">FOTO DE PERFIL</span><h3>Editar foto de perfil de la planta</h3><p>Esta imagen aparecerá como portada en Mis plantas.</p></div></div><div className="plant-gallery-head"><div><h3>Galería y evolución</h3><small>Añade hasta 4 fotos, elige la portada o elimina las que no quieras.</small></div><div className="plant-gallery-actions"><label className={(draft.gallery || []).length >= 4 ? "disabled" : ""}><Camera size={16} /> Hacer foto<input disabled={(draft.gallery || []).length >= 4} type="file" accept="image/*" capture="environment" onChange={addPhoto} /></label><label className={(draft.gallery || []).length >= 4 ? "disabled" : ""}><ImagePlus size={16} /> Elegir de galería<input disabled={(draft.gallery || []).length >= 4} type="file" accept="image/jpeg,image/png,image/webp" onChange={addPhoto} /></label></div></div>
       {uploading && <div className="route-loading gallery-loading"><span className="spinner dark-spinner" /> Guardando fotografía…</div>}
-      {(draft.gallery || []).length ? <div className="plant-gallery-grid">{draft.gallery.map((photo, index) => <figure key={photo}><img src={photo} alt={`Evolución ${index + 1}`} /><button onClick={() => removePhoto(index)} aria-label="Eliminar foto"><X size={14} /></button><figcaption>Foto {index + 1}</figcaption></figure>)}</div> : !uploading && <div className="plant-gallery-empty"><Camera size={25} /><span>Añade una primera fotografía para seguir su evolución.</span></div>}
+      {(draft.gallery || []).length ? <div className="plant-gallery-grid profile-gallery-grid">{draft.gallery.map((photo, index) => <figure className={photo === draft.plantPhoto ? "selected-profile" : ""} key={photo}><img src={photo} alt={`Evolución ${index + 1}`} />{photo === draft.plantPhoto && <span className="profile-photo-badge">Perfil</span>}<div className="profile-gallery-actions"><button type="button" className="choose-profile" onClick={() => chooseProfilePhoto(photo)}>Usar de perfil</button><button type="button" className="remove-gallery-photo" onClick={() => removePhoto(index)} aria-label="Eliminar foto"><X size={14} /></button></div><figcaption>Foto {index + 1}</figcaption></figure>)}</div> : !uploading && <div className="plant-gallery-empty"><Camera size={25} /><span>Añade una primera fotografía: se usará automáticamente como perfil.</span></div>}
     </section>
     <div className="profile-fields">
       <label>Ubicación en casa<input value={draft.homeLocation || ""} onChange={(event) => change({ homeLocation: event.target.value })} placeholder="Salón, ventana este…" /></label>
@@ -165,7 +163,6 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
       {!!history.length && <div className="care-timeline">{history.slice(0, 8).map((item) => <p key={item.id}><b>{labels[item.type] || item.type}</b><span>{new Date(item.completedAt).toLocaleDateString("es-ES")}</span></p>)}</div>}
     </section>
     <section className="plant-log-section"><h3><Bug size={18} /> Problemas, plagas y tratamientos</h3><p className="plant-log-help">Añade fotos con el paso de los días para comparar la evolución y recibir orientación sobre los siguientes pasos.</p><form className="plant-log-form" onSubmit={addTreatment}><input required value={treatment.problem} onChange={(event) => setTreatment({ ...treatment, problem: event.target.value })} placeholder="Plaga, hongo o síntoma" /><input value={treatment.product} onChange={(event) => setTreatment({ ...treatment, product: event.target.value })} placeholder="Producto o actuación" /><input value={treatment.dose} onChange={(event) => setTreatment({ ...treatment, dose: event.target.value })} placeholder="Dosis aplicada" /><input type="date" value={treatment.date} onChange={(event) => setTreatment({ ...treatment, date: event.target.value })} /><button>Añadir</button></form>{(draft.treatments || []).map((item) => <article className="plant-log-entry" key={item.id}><header><div><b>{item.problem}</b><small>{item.date} · {item.product || "Sin producto"}{item.dose ? ` · ${item.dose}` : ""}</small></div><button onClick={() => change({ treatments: draft.treatments.filter((entry) => entry.id !== item.id) })}>Eliminar</button></header><EvolutionPhotoActions onPhoto={(event) => addEvolutionPhoto("treatment", item, event)} />{analyzingLog === `treatment-${item.id}` && <div className="log-analysis-loading"><span className="spinner dark-spinner" /> Analizando posibles plagas y evolución…</div>}<div className="evolution-timeline">{(item.evolution || []).map((entry) => <figure key={entry.id}><img src={entry.url} alt={`Evolución de ${item.problem}`} /><figcaption><b>{entry.date}</b><p>{entry.analysis}</p></figcaption></figure>)}</div></article>)}</section>
-    <section className="plant-log-section"><h3><GitBranch size={18} /> Esquejes y propagación</h3><p className="plant-log-help">Fotografía las raíces y PlantLive te orientará sobre si puede pasar a tierra o si aún necesita tiempo.</p><form className="plant-log-form propagation-form" onSubmit={addPropagation}><input required value={propagation.name} onChange={(event) => setPropagation({ ...propagation, name: event.target.value })} placeholder="Nombre del esqueje" /><select value={propagation.medium} onChange={(event) => setPropagation({ ...propagation, medium: event.target.value })}><option value="agua">En agua</option><option value="sustrato">En sustrato</option><option value="semihidro">Semihidroponía</option></select><input type="date" value={propagation.startedAt} onChange={(event) => setPropagation({ ...propagation, startedAt: event.target.value })} /><button>Añadir</button></form>{(draft.propagations || []).map((item) => <article className="plant-log-entry" key={item.id}><header><div><b>{item.name}</b><small>Desde {item.startedAt} · {item.medium}</small></div><select value={item.status} onChange={(event) => change({ propagations: draft.propagations.map((entry) => entry.id === item.id ? { ...entry, status: event.target.value } : entry) })}><option value="iniciado">Iniciado</option><option value="con-raices">Con raíces</option><option value="plantado">Plantado</option></select></header><EvolutionPhotoActions onPhoto={(event) => addEvolutionPhoto("propagation", item, event)} />{analyzingLog === `propagation-${item.id}` && <div className="log-analysis-loading"><span className="spinner dark-spinner" /> Comprobando raíces y madurez…</div>}<div className="evolution-timeline">{(item.evolution || []).map((entry) => <figure key={entry.id}><img src={entry.url} alt={`Evolución de ${item.name}`} /><figcaption><b>{entry.date}</b><p>{entry.analysis}</p></figcaption></figure>)}</div></article>)}</section>
     <label className="notes">Notas<textarea value={draft.notes || ""} onChange={(event) => change({ notes: event.target.value })} placeholder="Cambios observados, tratamientos, preferencias…" /></label>
     <button className="danger" onClick={() => { if (window.confirm(`¿Eliminar ${draft.nickname || draft.nombreComun} de Mis plantas?`)) { onRemove(draft.instanceId); onClose(); } }}>Eliminar de Mis plantas</button>
   </section></div>;
