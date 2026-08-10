@@ -20,6 +20,9 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { CalendarPage } from "./pages/CalendarPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { TermsPage } from "./pages/TermsPage";
+import { VerifyEmailPage } from "./pages/VerifyEmailPage";
+import { ChatPage } from "./pages/ChatPage";
+import { BlogPage, VacationBlogPage } from "./pages/BlogPage";
 
 function App() {
   const { user } = useAuth();
@@ -47,6 +50,10 @@ function App() {
       <Route path="/ajustes" element={<ProtectedRoute><SettingsPage notify={notify} /></ProtectedRoute>} />
       <Route path="/acceso" element={<AuthPage notify={notify} />} />
       <Route path="/restablecer" element={<ResetPasswordPage notify={notify} />} />
+      <Route path="/verificar-email" element={<VerifyEmailPage />} />
+      <Route path="/chatbot" element={<ChatPage />} />
+      <Route path="/blog" element={<BlogPage />} />
+      <Route path="/blog/cuidar-plantas-vacaciones" element={<VacationBlogPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes></main>
     <PlantChatbot plants={garden.plants} authenticated={Boolean(user)} notify={notify} />

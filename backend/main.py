@@ -28,7 +28,7 @@ from database import Base, apply_compatible_schema_updates, engine, get_db
 from hybrid_ai_service import advanced_ai_configured, crear_ficha_avanzada, diagnosticar_avanzado, gemini_configured, preguntar_avanzado
 from models import ApiUsage, AuthSession, CareEvent, CustomTask, DiagnosisHistory, EmailVerificationToken, LegalAcceptance, NotificationDelivery, PasswordResetToken, Planta, PushSubscription, User, UserFeedback, UserPlant, UserSettings
 from storage_service import UPLOAD_DIR, delete_plant_photo, save_plant_photo
-from email_service import send_password_reset
+from email_service import EmailDeliveryError, send_email_verification, send_password_reset
 from notification_worker import run_once as send_due_notifications, send_test_push
 
 Base.metadata.create_all(bind=engine)
@@ -146,15 +146,30 @@ def public_user(db: Session, user: User) -> dict:
         "name": user.name,
         "email": user.email,
         "notificationsEnabled": user.notifications_enabled,
+        "emailVerified": user.email_verified,
     }
 
+
+def issue_verification(db: Session, user: User) -> bool:
+    raw_token = secrets.token_urlsafe(32)
+    db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.user_id == user.id,
+        EmailVerificationToken.used.is_(False),
+    ).update({"used": True})
+    db.add(EmailVerificationToken(
+        user_id=user.id,
+        token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+        expires_at=datetime.utcnow() + timedelta(hours=24),
+    ))
+    db.commit()
+    return send_email_verification(user.email, raw_token)
+
 def valid_new_password(password: str) -> bool:
-    return (
-        len(password) >= 10
-        and any(character.islower() for character in password)
-        and any(character.isupper() for character in password)
-        and any(character.isdigit() for character in password)
-    )
+    return len(password) >= 8
+
+
+def valid_registration_email(email: str) -> bool:
+    return bool(re.fullmatch(r"[^\s@]+@[^\s@]+\.com", email, flags=re.IGNORECASE))
 
 
 def get_or_create_settings(db: Session, user_id: int) -> UserSettings:
@@ -175,8 +190,12 @@ def register(datos: dict, request: Request, db: Session = Depends(get_db)):
     password = datos.get("password", "")
     if datos.get("acceptLegal") is not True:
         raise HTTPException(400, "Debes aceptar la privacidad y las condiciones de uso")
-    if len(name) < 2 or "@" not in email or not valid_new_password(password):
-        raise HTTPException(400, "La contraseña debe tener 10 caracteres, mayúscula, minúscula y número")
+    if len(name) < 2:
+        raise HTTPException(400, "Escribe un nombre de al menos 2 caracteres")
+    if not valid_registration_email(email):
+        raise HTTPException(400, "Escribe un correo válido terminado en .com, por ejemplo nombre@gmail.com")
+    if not valid_new_password(password):
+        raise HTTPException(400, "La contraseña debe tener al menos 8 caracteres")
     if db.query(User).filter(User.email == email).first():
         raise HTTPException(409, "Ya existe una cuenta con ese email")
     user = User(name=name, email=email, password_hash=hash_password(password))
@@ -184,6 +203,40 @@ def register(datos: dict, request: Request, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
     db.add(LegalAcceptance(user_id=user.id, version="2026-07-31"))
+    db.commit()
+    try:
+        sent = issue_verification(db, user)
+    except EmailDeliveryError as error:
+        logger.warning("No se pudo enviar verificación a %s: %s", email, error)
+        sent = False
+    return {"verificationRequired": True, "email": user.email, "emailSent": sent}
+
+
+@app.post("/auth/resend-verification")
+def resend_verification(datos: dict, request: Request, db: Session = Depends(get_db)):
+    enforce_rate_limit(request, "resend-verification", 4, 3600)
+    user = db.query(User).filter(User.email == datos.get("email", "").strip().lower()).first()
+    if user and not user.email_verified:
+        try:
+            issue_verification(db, user)
+        except EmailDeliveryError as error:
+            logger.warning("No se pudo reenviar verificación: %s", error)
+    return {"message": "Si la cuenta está pendiente, recibirás un nuevo enlace"}
+
+
+@app.post("/auth/verify-email")
+def verify_email(datos: dict, db: Session = Depends(get_db)):
+    token_hash = hashlib.sha256(datos.get("token", "").encode()).hexdigest()
+    token = db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.token_hash == token_hash,
+        EmailVerificationToken.used.is_(False),
+        EmailVerificationToken.expires_at > datetime.utcnow(),
+    ).first()
+    if not token:
+        raise HTTPException(400, "El enlace no es válido o ha caducado")
+    user = db.query(User).filter(User.id == token.user_id).first()
+    user.email_verified = True
+    token.used = True
     db.commit()
     return {"token": create_session(db, user.id), "user": public_user(db, user)}
 
@@ -195,6 +248,8 @@ def login(datos: dict, request: Request, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == email).first()
     if not user or not verify_password(datos.get("password", ""), user.password_hash):
         raise HTTPException(401, "Email o contraseña incorrectos")
+    if not user.email_verified:
+        raise HTTPException(403, "Verifica tu correo antes de iniciar sesión")
     return {"token": create_session(db, user.id), "user": public_user(db, user)}
 
 

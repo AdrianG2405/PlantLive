@@ -7,7 +7,7 @@ const address = import.meta.env.VITE_LEGAL_ADDRESS?.trim();
 export function LegalPage() {
   return <section className="section legal-page"><span className="kicker">PRIVACIDAD</span><h1>Cómo trata PlantLive tus datos</h1><p><b>Última actualización:</b> 31 de julio de 2026.</p>
     <h2>Responsable</h2><p><b>{owner}</b>{address && <><br />Domicilio: {address}</>}<br />Contacto para privacidad: {contact}</p>
-    <h2>Estado del servicio</h2><p>PlantLive se ofrece actualmente como una beta gratuita, sin pagos ni publicidad. El servicio y sus funciones pueden cambiar mientras se prueban y mejoran.</p>
+    <h2>Estado del servicio</h2><p>PlantLive es un servicio web para organizar y orientar el cuidado de plantas. Actualmente no incluye pagos ni publicidad.</p>
     <h2>Datos y finalidad</h2><p>Tratamos nombre, correo electrónico, sesiones, plantas, calendario, preferencias, fotografías aportadas voluntariamente, diagnósticos e historial de cuidados para crear la cuenta, prestar el servicio, protegerlo frente a abusos y enviar recordatorios solicitados.</p>
     <h2>Base jurídica</h2><p>La gestión de la cuenta y del jardín es necesaria para prestar el servicio solicitado. Los recordatorios y el análisis externo se basan en las preferencias y el consentimiento del usuario, que pueden retirarse desde Ajustes.</p>
     <h2>Inteligencia artificial y proveedores</h2><p>Cuando aceptas el análisis externo, las fotografías y el contexto necesario pueden enviarse a Plant.id y Google Gemini. La infraestructura utiliza Vercel, Render y Supabase; el correo utiliza Resend. Cada proveedor puede tratar datos técnicos conforme a sus condiciones. No utilices el servicio para fotografías de personas ni documentos personales.</p>

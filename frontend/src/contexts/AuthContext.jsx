@@ -23,9 +23,15 @@ export function AuthProvider({ children }) {
 
   const authenticate = async (mode, values) => {
     const data = await authApi[mode](values);
+    if (data.verificationRequired) return data;
     saveToken(data.token);
     setUser(data.user);
+    return data;
   };
+  const acceptAuthentication = useCallback((data) => {
+    saveToken(data.token);
+    setUser(data.user);
+  }, []);
   const logout = async () => {
     try { await authApi.logout(); } catch { /* La sesión puede haber sido revocada en otro dispositivo. */ } finally {
       clearToken();
@@ -37,5 +43,5 @@ export function AuthProvider({ children }) {
     setUser(current);
     return current;
   }, []);
-  return <AuthContext.Provider value={{ user, loading, authenticate, logout, refreshUser }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, authenticate, acceptAuthentication, logout, refreshUser }}>{children}</AuthContext.Provider>;
 }

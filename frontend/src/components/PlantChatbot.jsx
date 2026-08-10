@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bot, ImagePlus, Leaf, Send, Trash2, X } from "lucide-react";
+import { Bot, Camera, ImagePlus, Leaf, Send, Trash2, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { askPlantLive } from "../services/plantliveApi";
 
@@ -71,6 +71,10 @@ export function PlantChatbot({ plants, authenticated, notify }) {
           sustrato: plant.currentSubstrate || plant.sustrato,
           maceta: plant.potSize,
           luz: plant.exposure || plant.luz,
+          fotoPlantaGuardada: plant.plantPhoto || undefined,
+          fotoSustratoGuardada: plant.substratePhoto || undefined,
+          proximoRiego: plant.nextWater,
+          proximoAbono: plant.nextFeed,
         }) : undefined,
         historial: nextMessages.slice(1, -1),
         imagen: image || undefined,
@@ -104,7 +108,7 @@ export function PlantChatbot({ plants, authenticated, notify }) {
       </div>
       {messages.length === 1 && <button className="chat-suggestion" onClick={() => setQuestion("¿Puedo pasar mi lucky bamboo de agua a tierra?")}>¿Puedo pasar mi lucky bamboo a tierra?</button>}
       {image && <div className="chat-image-context"><img src={image} alt="Foto adjunta" /><span><b>Foto añadida al contexto</b><small>Puedes seguir preguntando sobre ella</small></span><button onClick={() => setImage("")} aria-label="Quitar fotografía"><Trash2 size={16} /></button></div>}
-      <form onSubmit={send}><label className="chat-attach" title="Añadir una fotografía"><ImagePlus size={19} /><input type="file" accept="image/jpeg,image/png,image/webp" onChange={loadImage} /></label><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={image ? "Pregunta algo sobre la foto…" : "Escribe tu pregunta…"} maxLength={800} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); } }} /><button disabled={(!question.trim() && !image) || loading} aria-label="Enviar"><Send size={18} /></button></form>
+      <form className="chat-composer" onSubmit={send}><div className="chat-photo-actions"><label className="chat-attach" title="Hacer una foto"><Camera size={19} /><input type="file" accept="image/*" capture="environment" onChange={loadImage} /></label><label className="chat-attach" title="Elegir de la galería"><ImagePlus size={19} /><input type="file" accept="image/jpeg,image/png,image/webp" onChange={loadImage} /></label></div><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={image ? "Pregunta algo sobre la foto…" : "Escribe tu pregunta…"} maxLength={800} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(); } }} /><button disabled={(!question.trim() && !image) || loading} aria-label="Enviar"><Send size={18} /></button></form>
       <small className="chat-disclaimer">Orientación general. Ante intoxicaciones o riesgos graves, consulta a un profesional.</small>
     </section>}
   </>;
