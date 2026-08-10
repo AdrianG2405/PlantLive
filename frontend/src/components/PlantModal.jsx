@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bug, CalendarDays, Camera, Check, Droplets, FlaskConical, GitBranch, History, MessageCircle, RefreshCw, Scissors, Sprout, X } from "lucide-react";
+import { Bug, CalendarDays, Camera, Check, Droplets, FlaskConical, GitBranch, History, ImagePlus, MessageCircle, RefreshCw, Scissors, Sprout, X } from "lucide-react";
 import { seasonalCareDays, userDataApi } from "../services/plantliveApi";
 
 const careTypes = [
@@ -41,6 +41,7 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }
   };
   const addPhoto = (event) => {
     const file = event.target.files?.[0];
+    event.target.value = "";
     if (!file || (draft.gallery || []).length >= 4) return;
     const image = new Image();
     const url = URL.createObjectURL(file);
@@ -105,7 +106,7 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }
   return <div className="modal-backdrop" onClick={onClose}><section className="modal plant-profile" onClick={(event) => event.stopPropagation()}>
     <button className="close" onClick={onClose} aria-label="Cerrar">×</button><span className="kicker">FICHA DE CUIDADOS</span>
     <input className="nickname" value={draft.nickname} onChange={(event) => change({ nickname: event.target.value })} /><i>{draft.nombreCientifico}</i>
-    <section className="plant-gallery"><div className="plant-gallery-head"><div><h3>Galería y evolución</h3><small>Guarda hasta 4 fotografías para comparar su estado.</small></div><label><Camera size={16} /> Añadir foto<input type="file" accept="image/jpeg,image/png,image/webp" onChange={addPhoto} /></label></div>
+    <section className="plant-gallery"><div className="plant-gallery-head"><div><h3>Galería y evolución</h3><small>Guarda hasta 4 fotografías para comparar su estado.</small></div><div className="plant-gallery-actions"><label><Camera size={16} /> Hacer foto<input type="file" accept="image/*" capture="environment" onChange={addPhoto} /></label><label><ImagePlus size={16} /> Elegir de galería<input type="file" accept="image/jpeg,image/png,image/webp" onChange={addPhoto} /></label></div></div>
       {uploading && <div className="route-loading gallery-loading"><span className="spinner dark-spinner" /> Guardando fotografía…</div>}
       {(draft.gallery || []).length ? <div className="plant-gallery-grid">{draft.gallery.map((photo, index) => <figure key={photo}><img src={photo} alt={`Evolución ${index + 1}`} /><button onClick={() => removePhoto(index)} aria-label="Eliminar foto"><X size={14} /></button><figcaption>Foto {index + 1}</figcaption></figure>)}</div> : !uploading && <div className="plant-gallery-empty"><Camera size={25} /><span>Añade una primera fotografía para seguir su evolución.</span></div>}
     </section>

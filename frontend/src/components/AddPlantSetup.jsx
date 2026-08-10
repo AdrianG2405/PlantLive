@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { Camera, Droplets, Leaf, X } from "lucide-react";
+import { Camera, Droplets, ImagePlus, Leaf, X } from "lucide-react";
 
-const PhotoField = ({ label, hint, value, onChange }) => <label className="setup-photo"><span>{value ? <img src={value.preview} alt={label} /> : <Camera size={28} />}</span><b>{label}</b><small>{hint}</small><input required type="file" accept="image/*" capture="environment" onChange={(event) => { const file = event.target.files?.[0]; if (file) onChange({ file, preview: URL.createObjectURL(file) }); }} /></label>;
+const PhotoField = ({ label, hint, value, onChange }) => {
+  const load = (event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) onChange({ file, preview: URL.createObjectURL(file) }); };
+  return <div className="setup-photo"><span>{value ? <img src={value.preview} alt={label} /> : <Camera size={28} />}</span><b>{label}</b><small>{hint}</small><div className="setup-photo-actions"><label><Camera size={16} /> Hacer foto<input type="file" accept="image/*" capture="environment" onChange={load} /></label><label><ImagePlus size={16} /> Galería<input type="file" accept="image/jpeg,image/png,image/webp" onChange={load} /></label></div></div>;
+};
 
 export function AddPlantSetup({ plant, onCancel, onConfirm, loading }) {
   const [form, setForm] = useState({ plantPhoto: null, substratePhoto: null, potSize: "", currentSubstrate: "" });
   if (!plant) return null;
-  const submit = (event) => { event.preventDefault(); onConfirm(form); };
+  const submit = (event) => { event.preventDefault(); if (form.plantPhoto && form.substratePhoto) onConfirm(form); };
   return <div className="modal-backdrop" onClick={onCancel}><form className="modal add-plant-setup" onSubmit={submit} onClick={(event) => event.stopPropagation()}><button type="button" className="close" onClick={onCancel}><X size={19} /></button><span className="kicker">PERSONALIZA SUS CUIDADOS</span><h2>Añade {plant.nombreComun}</h2><p>Estas dos fotos ayudan a estimar la proporción entre planta, maceta y sustrato para ajustar mejor la frecuencia de revisión del riego.</p><div className="setup-photo-grid"><PhotoField label="Foto de la planta y maceta" hint="Encuádrala completa y con buena luz" value={form.plantPhoto} onChange={(value) => setForm({ ...form, plantPhoto: value })} /><PhotoField label="Foto del sustrato" hint="Acércate a la superficie de la tierra" value={form.substratePhoto} onChange={(value) => setForm({ ...form, substratePhoto: value })} /></div><div className="profile-fields"><label>Tamaño o diámetro de maceta<input required value={form.potSize} onChange={(event) => setForm({ ...form, potSize: event.target.value })} placeholder="Ej. 12 cm, pequeña…" /></label><label>Tipo de sustrato, si lo sabes<input value={form.currentSubstrate} onChange={(event) => setForm({ ...form, currentSubstrate: event.target.value })} placeholder="Universal, perlita, corteza…" /></label></div><aside className="setup-explanation"><Droplets size={20} /><span>Una maceta pequeña suele secarse antes; una grande retiene humedad durante más tiempo. PlantLive creará un punto de partida y te pedirá comprobar siempre la humedad real.</span></aside><button className="primary setup-submit" disabled={loading}>{loading ? "Analizando condiciones…" : <><Leaf size={17} /> Crear ficha personalizada</>}</button></form></div>;
 }
