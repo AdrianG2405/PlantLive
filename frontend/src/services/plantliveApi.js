@@ -74,7 +74,8 @@ export const userDataApi = {
 };
 
 const normalizeTaxon = (name = "") =>
-  name.toLowerCase().replace(/[×'".,]/g, "").replace(/\s+/g, " ").trim();
+  name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[×'".,]/g, "").replace(/\s+/g, " ").trim();
 
 const GROUP_ALIASES = {
   mosntera: { name: "Monstera", rank: "genus" },
@@ -109,6 +110,7 @@ const INDOOR_RETAIL_CATALOG = [
   ["Calatea orbifolia", "Goeppertia orbifolia", ["calatea", "calateas", "calathea", "calatheas"]],
   ["Calatea makoyana", "Goeppertia makoyana", ["calatea", "calateas", "calathea", "calatheas"]],
   ["Calatea ornata", "Goeppertia ornata", ["calatea", "calateas", "calathea", "calatheas"]],
+  ["Calatea zebra", "Goeppertia zebrina", ["calatea", "calateas", "calathea", "calatheas", "calatea zebrina", "calathea zebrina", "zebra", "zebrina"]],
   ["Calatea lancifolia", "Goeppertia insignis", ["calatea", "calateas", "calathea", "calatheas"]],
   ["Calatea roseopicta", "Goeppertia roseopicta", ["calatea", "calateas", "calathea", "calatheas"]],
   ["Calatea warscewiczii", "Goeppertia warscewiczii", ["calatea", "calateas", "calathea", "calatheas"]],
@@ -139,11 +141,29 @@ const INDOOR_RETAIL_CATALOG = [
   ["Alocasia zebrina", "Alocasia zebrina", ["alocasia", "alocasias", "plantas interior"]],
   ["Hoya carnosa", "Hoya carnosa", ["hoya", "hoyas", "flor de cera", "plantas interior"]],
   ["Cadena de corazones", "Ceropegia woodii", ["ceropegia", "cadena de corazones", "plantas interior"]],
+  ["Fitonia", "Fittonia albivenis", ["fitonia", "fittonia", "plantas interior"]],
+  ["Tradescantia zebrina", "Tradescantia zebrina", ["tradescantia", "amor de hombre", "plantas interior"]],
+  ["Cheflera", "Heptapleurum arboricola", ["cheflera", "schefflera", "plantas interior"]],
+  ["Croton", "Codiaeum variegatum", ["croton", "codiaeum", "plantas interior"]],
+  ["Palmera de salón", "Chamaedorea elegans", ["palmera", "palmeras", "chamaedorea", "plantas interior"]],
+  ["Palmera areca", "Dypsis lutescens", ["palmera", "palmeras", "areca", "plantas interior"]],
+  ["Helecho de Boston", "Nephrolepis exaltata", ["helecho", "helechos", "plantas interior"]],
+  ["Orquídea mariposa", "Phalaenopsis amabilis", ["orquidea", "orquideas", "phalaenopsis", "plantas interior"]],
+  ["Violeta africana", "Streptocarpus ionanthus", ["violeta africana", "saintpaulia", "plantas interior"]],
+  ["Árbol de jade", "Crassula ovata", ["jade", "arbol de jade", "suculenta", "suculentas"]],
+  ["Aloe vera", "Aloe vera", ["aloe", "aloe vera", "suculenta", "suculentas"]],
+  ["Cactus de Navidad", "Schlumbergera truncata", ["cactus", "cactus de navidad", "schlumbergera"]],
+  ["Cactus orejas de conejo", "Opuntia microdasys", ["cactus", "opuntia", "orejas de conejo"]],
+  ["Yucca pie de elefante", "Yucca gigantea", ["yucca", "yuca", "pie de elefante", "plantas interior"]],
 ];
 
 const retailPhotoCache = new Map();
 const retailPhoto = (scientificName) => {
-  if (!retailPhotoCache.has(scientificName)) retailPhotoCache.set(scientificName, findPlantPhoto(scientificName).catch(() => null));
+  if (!retailPhotoCache.has(scientificName)) {
+    retailPhotoCache.set(scientificName, (async () =>
+      await findWikipediaPhoto(scientificName) || await findPlantPhoto(scientificName)
+    )().catch(() => null));
+  }
   return retailPhotoCache.get(scientificName);
 };
 
@@ -151,7 +171,11 @@ async function searchIndoorRetailCatalog(normalizedInput) {
   const singular = normalizedInput.replace(/s$/, "");
   const matches = INDOOR_RETAIL_CATALOG.filter(([common, scientific, keywords]) => {
     const names = [common, scientific, ...keywords].map(normalizeTaxon);
-    return names.some((name) => name === normalizedInput || name === singular || name.includes(normalizedInput));
+    const queryWords = singular.split(" ").filter((word) => word.length > 2);
+    return names.some((name) =>
+      name === normalizedInput || name === singular || name.includes(normalizedInput) ||
+      queryWords.every((word) => name.includes(word))
+    );
   });
   if (!matches.length) return [];
   const results = await Promise.all(matches.slice(0, 24).map(async ([common, scientific]) => ({
@@ -174,7 +198,7 @@ const COMMERCIAL_SPECIES = [
   "Philodendron hederaceum", "Philodendron erubescens", "Scindapsus pictus",
   "Ficus elastica", "Ficus lyrata", "Ficus benjamina", "Ficus pumila",
   "Goeppertia orbifolia", "Goeppertia makoyana", "Goeppertia ornata",
-  "Goeppertia insignis", "Maranta leuconeura", "Stromanthe sanguinea",
+  "Goeppertia zebrina", "Goeppertia insignis", "Maranta leuconeura", "Stromanthe sanguinea",
   "Peperomia obtusifolia", "Peperomia caperata", "Peperomia argyreia",
   "Pilea peperomioides", "Fittonia albivenis", "Chlorophytum comosum",
   "Spathiphyllum wallisii", "Zamioculcas zamiifolia", "Dracaena trifasciata",
@@ -229,6 +253,24 @@ async function findWikimediaPhoto(scientificName) {
   const expected = normalizeTaxon(scientificName);
   const page = pages.find((item) => normalizeTaxon(item.title).includes(expected)) || pages[0];
   return page?.imageinfo?.[0]?.thumburl || null;
+}
+
+// La imagen principal de una ficha de Wikipedia suele representar mejor la
+// planta completa que una observación silvestre o una fotografía aleatoria.
+async function findWikipediaPhoto(scientificName) {
+  for (const language of ["es", "en"]) {
+    const params = new URLSearchParams({
+      action: "query", titles: scientificName, redirects: "1",
+      prop: "pageimages", piprop: "thumbnail", pithumbsize: "900",
+      format: "json", origin: "*",
+    });
+    const response = await fetch(`https://${language}.wikipedia.org/w/api.php?${params}`);
+    if (!response.ok) continue;
+    const pages = Object.values((await response.json()).query?.pages || {});
+    const image = pages.find((page) => page.thumbnail?.source)?.thumbnail?.source;
+    if (image) return image;
+  }
+  return null;
 }
 
 async function findObservationPhoto(taxonId) {
@@ -312,10 +354,10 @@ async function searchRetailGroup(groupNames) {
 export async function searchPlants(query) {
   const normalizedInput = normalizeTaxon(query);
   const indoorRetailResults = await searchIndoorRetailCatalog(normalizedInput);
-  if (indoorRetailResults.length >= 2) {
+  const retailGroup = RETAIL_GROUPS[normalizedInput];
+  if (indoorRetailResults.length && !retailGroup) {
     return indoorRetailResults.sort((a, b) => Number(Boolean(b.imagen)) - Number(Boolean(a.imagen)));
   }
-  const retailGroup = RETAIL_GROUPS[normalizedInput];
   if (retailGroup) {
     const retailResults = await searchRetailGroup(retailGroup);
     if (retailResults.length) return retailResults;
