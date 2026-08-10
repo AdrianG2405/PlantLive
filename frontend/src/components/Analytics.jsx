@@ -39,5 +39,5 @@ export function Analytics() {
   };
 
   if (consent || !measurementId) return null;
-  return <aside className="cookie-consent" aria-label="Preferencias de medición"><div><b>Tu privacidad importa</b><p>PlantLive utiliza medición anónima para saber qué secciones resultan útiles y mejorar la web. Puedes aceptar o continuar sin Analytics. <Link to="/privacidad">Más información</Link>.</p></div><div><button type="button" className="cookie-reject" onClick={() => choose("rejected")}>Solo necesarias</button><button type="button" className="cookie-accept" onClick={() => choose("accepted")}>Aceptar estadísticas</button></div></aside>;
+  return <aside className="cookie-consent" aria-label="Preferencias de medición"><div><b>Tu privacidad importa</b><p>PlantLive utiliza medición anónima para saber qué secciones resultan útiles y mejorar la web. Puedes aceptar o continuar sin Analytics. <Link to="/privacidad">Consulta la política de privacidad de PlantLive</Link>.</p></div><div><button type="button" className="cookie-reject" onClick={() => choose("rejected")}>Solo necesarias</button><button type="button" className="cookie-accept" onClick={() => choose("accepted")}>Aceptar estadísticas</button></div></aside>;
 }

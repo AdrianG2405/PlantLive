@@ -1,0 +1,20 @@
+# PlantLive
+
+PlantLive es una aplicación web en español para identificar plantas, organizar sus cuidados, seguir riegos y recibir orientación sobre problemas y posibles plagas.
+
+## Contenido público principal
+
+- [Página principal](https://www.plantlive.es/): presentación, búsqueda e identificación de plantas.
+- [Diagnóstico de plantas](https://www.plantlive.es/diagnostico): orientación mediante fotografías sobre síntomas, problemas y posibles plagas.
+- [Chatbot de PlantLive](https://www.plantlive.es/chatbot): ayuda sobre riego, luz, abono y cuidados.
+- [Blog de cuidado de plantas](https://www.plantlive.es/blog): guías prácticas de jardinería doméstica.
+- [Cuidar plantas durante las vacaciones](https://www.plantlive.es/blog/cuidar-plantas-vacaciones): consejos para mantener las plantas hidratadas durante una ausencia.
+- [Sobre PlantLive](https://www.plantlive.es/sobre-nosotros): propósito y funcionamiento del proyecto.
+
+## Información y contacto
+
+- [Política de privacidad](https://www.plantlive.es/privacidad)
+- [Condiciones de uso](https://www.plantlive.es/condiciones)
+- Contacto: plantlivesupport@gmail.com
+
+Las fichas y diagnósticos proporcionan orientación general y deben contrastarse con la evolución real de cada planta. Las áreas de cuenta, colección, calendario y ajustes contienen información privada y no deben rastrearse.
