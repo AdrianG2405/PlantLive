@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, Brain, Clock, Download, KeyRound, LogOut, Save, ShieldCheck, Trash2 } from "lucide-react";
+import { Bell, Brain, CloudSun, Clock, Download, KeyRound, LocateFixed, LogOut, Save, ShieldCheck, Trash2 } from "lucide-react";
 import { authApi, userDataApi } from "../services/plantliveApi";
 import { useAuth } from "../contexts/authStore";
 
@@ -10,6 +10,7 @@ export function SettingsPage({ notify }) {
   const [testingNotification, setTestingNotification] = useState(false);
   const [passwords, setPasswords] = useState({ current: "", next: "" });
   const [deletion, setDeletion] = useState({ password: "", confirmation: "" });
+  const [weatherPreview, setWeatherPreview] = useState(null);
   useEffect(() => { userDataApi.settings().then(setSettings).catch((error) => notify(error.message)); }, [notify]);
   if (!settings) return <div className="route-loading">Cargando ajustes…</div>;
   const save = async () => {
@@ -50,6 +51,17 @@ export function SettingsPage({ notify }) {
   const logoutEverywhere = async () => {
     try { await authApi.logoutAll(); } finally { await logout(); }
   };
+  const locateWeather = () => {
+    if (!navigator.geolocation) return notify("Este navegador no permite obtener la ubicación.");
+    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+      const latitude = coords.latitude.toFixed(4), longitude = coords.longitude.toFixed(4);
+      setSettings({ ...settings, weatherEnabled: true, weatherLatitude: latitude, weatherLongitude: longitude, weatherLocation: "Ubicación aproximada" });
+      try {
+        const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,precipitation&timezone=auto`);
+        setWeatherPreview((await response.json()).current);
+      } catch { notify("Ubicación guardada; no se pudo cargar la vista previa del clima."); }
+    }, () => notify("No se concedió permiso de ubicación."), { enableHighAccuracy: false, timeout: 10000 });
+  };
   const deleteAccount = async (event) => {
     event.preventDefault();
     if (deletion.confirmation !== "ELIMINAR") return notify("Escribe ELIMINAR para confirmar.");
@@ -69,9 +81,10 @@ export function SettingsPage({ notify }) {
     <div className="settings-card"><h2><Brain size={21} /> Inteligencia artificial</h2><div className="consent-copy"><ShieldCheck size={24} /><p>El modo avanzado envía la fotografía a proveedores tecnológicos especializados. Actívalo solo si aceptas este procesamiento externo; encontrarás el detalle en la política de privacidad.</p></div>
       <Toggle label="Acepto el análisis mediante servicios externos" checked={settings.aiConsent} onChange={(value) => setSettings({ ...settings, aiConsent: value })} />
     </div>
+    <div className="settings-card"><h2><CloudSun size={21} /> Clima local opcional</h2><p>Utiliza una ubicación aproximada para adelantar revisiones con calor intenso o espaciarlas cuando hace frío o llueve. PlantLive no guarda tu dirección.</p><Toggle label="Adaptar cuidados al clima local" checked={settings.weatherEnabled} onChange={(value) => setSettings({ ...settings, weatherEnabled: value })} /><button type="button" className="secondary-action" onClick={locateWeather}><LocateFixed size={17} /> Usar mi ubicación aproximada</button>{settings.weatherLatitude && <small className="weather-location">{settings.weatherLocation}: {settings.weatherLatitude}, {settings.weatherLongitude}</small>}{weatherPreview && <div className="weather-preview"><b>{weatherPreview.temperature_2m} °C</b><span>Humedad {weatherPreview.relative_humidity_2m}% · Precipitación {weatherPreview.precipitation} mm</span></div>}</div>
     <button className="primary settings-save" onClick={save} disabled={saving}><Save size={18} /> {saving ? "Guardando…" : "Guardar preferencias"}</button>
     <div className="settings-card account-security"><h2><KeyRound size={21} /> Seguridad de la cuenta</h2>
-      <form onSubmit={changePassword}><label>Contraseña actual<input type="password" required value={passwords.current} onChange={(event) => setPasswords({ ...passwords, current: event.target.value })} /></label><label>Nueva contraseña<input type="password" required minLength="10" value={passwords.next} onChange={(event) => setPasswords({ ...passwords, next: event.target.value })} placeholder="10 caracteres, mayúscula, minúscula y número" /></label><button className="primary">Cambiar contraseña</button></form>
+      <form onSubmit={changePassword}><label>Contraseña actual<input type="password" required value={passwords.current} onChange={(event) => setPasswords({ ...passwords, current: event.target.value })} /></label><label>Nueva contraseña<input type="password" required minLength="8" value={passwords.next} onChange={(event) => setPasswords({ ...passwords, next: event.target.value })} placeholder="Al menos 8 caracteres" /></label><button className="primary">Cambiar contraseña</button></form>
       <button className="secondary-action" onClick={logoutEverywhere}><LogOut size={17} /> Cerrar todas las sesiones</button>
     </div>
     <div className="settings-card"><h2><Download size={21} /> Tus datos</h2><p>Descarga una copia en formato JSON con tus plantas, cuidados, tareas y diagnósticos.</p><button className="secondary-action" onClick={exportData}><Download size={17} /> Descargar mis datos</button></div>

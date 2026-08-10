@@ -108,7 +108,7 @@ En QUÉ VIGILAR explica qué cambios justificarían actuar o pedir otra fotograf
         raise RuntimeError("Gemini no devolvió un diagnóstico")
     return text.replace("**", "").strip()
 
-def crear_ficha_avanzada(nombre_cientifico: str, nombre_comun: str | None = None, contexto: dict | None = None) -> dict:
+def crear_ficha_avanzada(nombre_cientifico: str, nombre_comun: str | None = None, contexto: dict | None = None, imagenes: list[str] | None = None) -> dict:
     model = os.getenv("GEMINI_MODEL", "").strip() or "gemini-3.6-flash"
     prompt = f"""Prepara una ficha hortícola prudente y específica para:
 Nombre científico: {nombre_cientifico}
@@ -130,8 +130,12 @@ puedes usar 1. En los campos de abono usa 0 cuando no se deba abonar durante esa
 estación. abonoIndicador debe explicar la dosis, si se aplica con el sustrato húmedo
 y cuándo suspenderlo. No inventes precisión: riegoIndicador debe explicar qué
 humedad, peso de maceta o señal comprobar antes de regar."""
+    image_parts = []
+    for image in (imagenes or [])[:2]:
+        if isinstance(image, str):
+            image_parts.append({"inlineData": {"mimeType": "image/jpeg", "data": image.split(",", 1)[-1]}})
     payload = {
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "contents": [{"role": "user", "parts": [*image_parts, {"text": prompt}]}],
         "generationConfig": {
             "maxOutputTokens": 1800,
             "responseMimeType": "application/json",

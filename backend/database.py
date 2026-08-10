@@ -38,6 +38,17 @@ def apply_compatible_schema_updates() -> None:
             connection.execute(text(
                 "ALTER TABLE user_settings ADD COLUMN reminder_minute INTEGER NOT NULL DEFAULT 0"
             ))
+    if columns:
+        setting_additions = {
+            "weather_enabled": "BOOLEAN NOT NULL DEFAULT FALSE",
+            "weather_latitude": "VARCHAR(30)",
+            "weather_longitude": "VARCHAR(30)",
+            "weather_location": "VARCHAR(120)",
+        }
+        for column_name, definition in setting_additions.items():
+            if column_name not in columns:
+                with engine.begin() as connection:
+                    connection.execute(text(f"ALTER TABLE user_settings ADD COLUMN {column_name} {definition}"))
     if inspector.has_table("users"):
         user_columns = {column["name"] for column in inspector.get_columns("users")}
         if "email_verified" not in user_columns:

@@ -268,6 +268,10 @@ def get_settings(db: Session = Depends(get_db), user: User = Depends(get_current
         "emailNotifications": item.email_notifications,
         "pushNotifications": item.push_notifications,
         "aiConsent": item.ai_consent,
+        "weatherEnabled": item.weather_enabled,
+        "weatherLatitude": item.weather_latitude,
+        "weatherLongitude": item.weather_longitude,
+        "weatherLocation": item.weather_location,
     }
 
 
@@ -287,6 +291,8 @@ def update_settings(datos: dict, db: Session = Depends(get_db), user: User = Dep
         "timezone": "timezone", "reminderHour": "reminder_hour", "reminderMinute": "reminder_minute",
         "emailNotifications": "email_notifications",
         "pushNotifications": "push_notifications", "aiConsent": "ai_consent",
+        "weatherEnabled": "weather_enabled", "weatherLatitude": "weather_latitude",
+        "weatherLongitude": "weather_longitude", "weatherLocation": "weather_location",
     }
     for source, target in mappings.items():
         if source in datos:
@@ -371,7 +377,7 @@ def change_password(datos: dict, db: Session = Depends(get_db), user: User = Dep
     if not verify_password(current_password, user.password_hash):
         raise HTTPException(400, "La contraseña actual no es correcta")
     if not valid_new_password(new_password):
-        raise HTTPException(400, "La nueva contraseña debe tener 10 caracteres, mayúscula, minúscula y número")
+        raise HTTPException(400, "La nueva contraseña debe tener al menos 8 caracteres")
     user.password_hash = hash_password(new_password)
     db.query(AuthSession).filter(AuthSession.user_id == user.id).delete()
     db.commit()
@@ -560,6 +566,7 @@ def ficha_planta_ia(
                 nombre_cientifico,
                 datos.get("nombreComun"),
                 datos.get("contexto"),
+                datos.get("imagenes"),
             )
             provider = "Gemini"
         else:

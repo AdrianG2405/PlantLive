@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CalendarDays, Camera, Check, Droplets, FlaskConical, History, MessageCircle, RefreshCw, Scissors, Sprout, X } from "lucide-react";
+import { Bug, CalendarDays, Camera, Check, Droplets, FlaskConical, GitBranch, History, MessageCircle, RefreshCw, Scissors, Sprout, X } from "lucide-react";
 import { seasonalCareDays, userDataApi } from "../services/plantliveApi";
 
 const careTypes = [
@@ -20,6 +20,8 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }
   const [history, setHistory] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [refreshingCare, setRefreshingCare] = useState(false);
+  const [treatment, setTreatment] = useState({ problem: "", product: "", dose: "", date: new Date().toISOString().slice(0, 10) });
+  const [propagation, setPropagation] = useState({ name: "", medium: "agua", startedAt: new Date().toISOString().slice(0, 10), status: "iniciado" });
   useEffect(() => {
     setDraft(plant);
     if (plant?.serverId) userDataApi.careHistory(plant.serverId).then(setHistory).catch(() => {});
@@ -88,6 +90,18 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }
     }));
     onClose();
   };
+  const addTreatment = (event) => {
+    event.preventDefault();
+    if (!treatment.problem.trim()) return;
+    change({ treatments: [{ ...treatment, id: globalThis.crypto?.randomUUID?.() || Date.now() }, ...(draft.treatments || [])] });
+    setTreatment({ problem: "", product: "", dose: "", date: new Date().toISOString().slice(0, 10) });
+  };
+  const addPropagation = (event) => {
+    event.preventDefault();
+    if (!propagation.name.trim()) return;
+    change({ propagations: [{ ...propagation, id: globalThis.crypto?.randomUUID?.() || Date.now() }, ...(draft.propagations || [])] });
+    setPropagation({ name: "", medium: "agua", startedAt: new Date().toISOString().slice(0, 10), status: "iniciado" });
+  };
   return <div className="modal-backdrop" onClick={onClose}><section className="modal plant-profile" onClick={(event) => event.stopPropagation()}>
     <button className="close" onClick={onClose} aria-label="Cerrar">×</button><span className="kicker">FICHA DE CUIDADOS</span>
     <input className="nickname" value={draft.nickname} onChange={(event) => change({ nickname: event.target.value })} /><i>{draft.nombreCientifico}</i>
@@ -112,6 +126,8 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove }
     <section className="care-history"><h3><History size={18} /> Registrar cuidado</h3><div className="care-buttons">{careTypes.map(([type, label, Icon]) => <button key={type} onClick={() => addCare(type)}><Icon size={16} /> {label}</button>)}</div>
       {!!history.length && <div className="care-timeline">{history.slice(0, 8).map((item) => <p key={item.id}><b>{labels[item.type] || item.type}</b><span>{new Date(item.completedAt).toLocaleDateString("es-ES")}</span></p>)}</div>}
     </section>
+    <section className="plant-log-section"><h3><Bug size={18} /> Problemas y tratamientos</h3><form className="plant-log-form" onSubmit={addTreatment}><input required value={treatment.problem} onChange={(event) => setTreatment({ ...treatment, problem: event.target.value })} placeholder="Plaga, hongo o síntoma" /><input value={treatment.product} onChange={(event) => setTreatment({ ...treatment, product: event.target.value })} placeholder="Producto o actuación" /><input value={treatment.dose} onChange={(event) => setTreatment({ ...treatment, dose: event.target.value })} placeholder="Dosis aplicada" /><input type="date" value={treatment.date} onChange={(event) => setTreatment({ ...treatment, date: event.target.value })} /><button>Añadir</button></form>{(draft.treatments || []).map((item) => <article key={item.id}><div><b>{item.problem}</b><small>{item.date} · {item.product || "Sin producto"}{item.dose ? ` · ${item.dose}` : ""}</small></div><button onClick={() => change({ treatments: draft.treatments.filter((entry) => entry.id !== item.id) })}>Eliminar</button></article>)}</section>
+    <section className="plant-log-section"><h3><GitBranch size={18} /> Esquejes y propagación</h3><form className="plant-log-form propagation-form" onSubmit={addPropagation}><input required value={propagation.name} onChange={(event) => setPropagation({ ...propagation, name: event.target.value })} placeholder="Nombre del esqueje" /><select value={propagation.medium} onChange={(event) => setPropagation({ ...propagation, medium: event.target.value })}><option value="agua">En agua</option><option value="sustrato">En sustrato</option><option value="semihidro">Semihidroponía</option></select><input type="date" value={propagation.startedAt} onChange={(event) => setPropagation({ ...propagation, startedAt: event.target.value })} /><button>Añadir</button></form>{(draft.propagations || []).map((item) => <article key={item.id}><div><b>{item.name}</b><small>Desde {item.startedAt} · {item.medium}</small></div><select value={item.status} onChange={(event) => change({ propagations: draft.propagations.map((entry) => entry.id === item.id ? { ...entry, status: event.target.value } : entry) })}><option value="iniciado">Iniciado</option><option value="con-raices">Con raíces</option><option value="plantado">Plantado</option></select></article>)}</section>
     <label className="notes">Notas<textarea value={draft.notes || ""} onChange={(event) => change({ notes: event.target.value })} placeholder="Cambios observados, tratamientos, preferencias…" /></label>
     <button className="danger" onClick={() => { if (window.confirm(`¿Eliminar ${draft.nickname || draft.nombreComun} de Mis plantas?`)) { onRemove(draft.instanceId); onClose(); } }}>Eliminar de Mis plantas</button>
   </section></div>;

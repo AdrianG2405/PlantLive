@@ -303,7 +303,8 @@ export async function createCareProfile(plant, contexto = {}) {
       body: JSON.stringify({
         nombreCientifico: plant.nombreCientifico,
         nombreComun: plant.nombreComun,
-        contexto,
+        contexto: { ...contexto, analysisPhotos: undefined },
+        imagenes: contexto.analysisPhotos,
       }),
     });
     const complete = { ...plant, ...care, id: plant.id, imagen: plant.imagen, careProfilePending: false };

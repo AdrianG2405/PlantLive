@@ -1,22 +1,26 @@
 import { useMemo, useState } from "react";
-import { Bell, BellRing, CalendarDays, Camera, Check, Droplets, Leaf, Plus, Search, Sparkles } from "lucide-react";
+import { Bell, BellRing, CalendarDays, Camera, Check, Droplets, Heart, Leaf, Plus, Search, Sparkles } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { PlantModal } from "../components/PlantModal";
 
 export function MyPlantsPage({
   plants, upcoming, updatePlant, refreshPlantCare, removePlant, markDone,
-  notifications, notify, loadingPlants, authenticated,
+  notifications, notify, loadingPlants, authenticated, weatherSummary,
 }) {
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState("");
+  const [collectionView, setCollectionView] = useState("active");
   const navigate = useNavigate();
   const visiblePlants = useMemo(() => {
     const term = filter.toLowerCase().trim();
-    return term ? plants.filter((plant) =>
+    const collection = plants.filter((plant) => collectionView === "wishlist" ? plant.collectionStatus === "wishlist" : plant.collectionStatus !== "wishlist");
+    return term ? collection.filter((plant) =>
       `${plant.nickname} ${plant.nombreComun} ${plant.nombreCientifico}`.toLowerCase().includes(term)
-    ) : plants;
-  }, [plants, filter]);
+    ) : collection;
+  }, [plants, filter, collectionView]);
+  const activeCount = plants.filter((plant) => plant.collectionStatus !== "wishlist").length;
+  const wishCount = plants.length - activeCount;
   const dueNow = upcoming.filter((item) => item.date <= new Date().toISOString().slice(0, 10)).length;
 
   const activateNotifications = async () => {
@@ -49,20 +53,22 @@ export function MyPlantsPage({
     </section>
 
     <section className="garden-overview">
-      <article><span><Leaf size={20} /></span><div><b>{plants.length}</b><small>Plantas guardadas</small></div></article>
+      <article><span><Leaf size={20} /></span><div><b>{activeCount}</b><small>Plantas en seguimiento</small></div></article>
       <article><span><Droplets size={20} /></span><div><b>{dueNow}</b><small>Cuidados pendientes</small></div></article>
       <article><span><CalendarDays size={20} /></span><div><b>{upcoming.length}</b><small>Próximos eventos</small></div></article>
     </section>
 
+    {weatherSummary && <aside className="garden-weather"><span>☁️</span><div><b>Cuidados adaptados al clima</b><small>{weatherSummary.temperature} °C · {weatherSummary.precipitation} mm de lluvia. {weatherSummary.adjustment < 0 ? "Revisaremos antes por el calor." : weatherSummary.adjustment > 0 ? "Espaciaremos la revisión por frío o lluvia." : "No hace falta modificar el ritmo actual."}</small></div></aside>}
     <section className="section garden-collection">
-      <div className="garden-toolbar"><div><span className="kicker">MI COLECCIÓN</span><h2>Todas mis plantas <sup>{plants.length}</sup></h2></div><div className="garden-tools">
+      <div className="garden-view-tabs"><button className={collectionView === "active" ? "active" : ""} onClick={() => setCollectionView("active")}><Leaf size={16} /> Mi colección <b>{activeCount}</b></button><button className={collectionView === "wishlist" ? "active" : ""} onClick={() => setCollectionView("wishlist")}><Heart size={16} /> Lista de deseos <b>{wishCount}</b></button></div>
+      <div className="garden-toolbar"><div><span className="kicker">{collectionView === "active" ? "MI COLECCIÓN" : "PRÓXIMAS PLANTAS"}</span><h2>{collectionView === "active" ? "Todas mis plantas" : "Lista de deseos"} <sup>{visiblePlants.length}</sup></h2></div><div className="garden-tools">
         {!!plants.length && <label className="garden-search"><Search size={17} /><input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Buscar en mi jardín" /></label>}
         {authenticated && notifications.subscriptionStatus === "active" ? <span className="notifications-on"><BellRing size={16} /> Avisos activos</span> : <button className="notification-button" onClick={activateNotifications} disabled={notifications.subscriptionStatus === "syncing"}><Bell size={17} /> {notifications.subscriptionStatus === "syncing" ? "Conectando avisos…" : notifications.permission === "granted" ? "Reintentar avisos" : "Activar avisos"}</button>}
       </div></div>
 
       {loadingPlants ? <div className="route-loading"><span className="spinner dark-spinner" /> Cargando tu jardín…</div> :
         visiblePlants.length ? <div className="modern-garden-grid">{visiblePlants.map((plant, index) => <motion.button className="modern-plant-card" key={plant.instanceId} onClick={() => setSelected(plant)} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * .04 }}>
-          <div className="modern-plant-photo">{plant.imagen ? <img src={plant.imagen} alt={plant.nickname || plant.nombreComun} /> : <span><Leaf size={40} /> Sin fotografía</span>}<span className="plant-status"><i /> En seguimiento</span></div>
+          <div className="modern-plant-photo">{plant.imagen ? <img src={plant.imagen} alt={plant.nickname || plant.nombreComun} /> : <span><Leaf size={40} /> Sin fotografía</span>}<span className="plant-status"><i /> {plant.collectionStatus === "wishlist" ? "En deseos" : "En seguimiento"}</span></div>
           <div className="modern-plant-info"><small>{plant.categoria || "MI PLANTA"}</small><h3>{plant.nickname || plant.nombreComun}</h3><i>{plant.nombreCientifico}</i><div><span><Droplets size={15} /> Próximo riego</span><b>{plant.nextWater ? new Date(`${plant.nextWater}T12:00`).toLocaleDateString("es-ES", { day: "numeric", month: "short" }) : "Por definir"}</b></div></div>
         </motion.button>)}</div> :
         plants.length ? <div className="empty small">No hay plantas que coincidan con “{filter}”.</div> :

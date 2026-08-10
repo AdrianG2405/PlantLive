@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Droplets, Plus, X } from "lucide-react";
 import { seasonalCareDays, userDataApi } from "../services/plantliveApi";
 
 const isoDate = (date) => date.toISOString().slice(0, 10);
@@ -14,6 +14,7 @@ export function CalendarPage({ upcoming, plants, completeWatering, notify }) {
   const [tasks, setTasks] = useState([]);
   const [savingWatering, setSavingWatering] = useState("");
   const [selectedDate, setSelectedDate] = useState(null);
+  const [feedbackEvent, setFeedbackEvent] = useState(null);
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const today = new Date();
     return new Date(today.getFullYear(), today.getMonth(), 1);
@@ -96,11 +97,12 @@ export function CalendarPage({ upcoming, plants, completeWatering, notify }) {
       load();
     } catch (error) { notify(error.message); }
   };
-  const markWatered = async (event) => {
+  const markWatered = async (event, moisture) => {
     setSavingWatering(event.id);
     try {
-      await completeWatering(event);
-      notify(`${event.plant} marcada como regada.`);
+      await completeWatering(event, moisture);
+      notify(moisture === "wet" ? "Ampliaremos poco a poco el intervalo." : moisture === "dry" ? "Adelantaremos la próxima revisión." : `${event.plant} marcada como regada.`);
+      setFeedbackEvent(null);
     } finally {
       setSavingWatering("");
     }
@@ -115,6 +117,7 @@ export function CalendarPage({ upcoming, plants, completeWatering, notify }) {
       return <article key={`${monthKey}-${index}`} className={`${!day ? "blank-day" : ""} ${selectedDate === date ? "selected-day" : ""} ${dayEvents.length ? "has-events" : ""}`}>{day && <button type="button" className="calendar-day-button" onClick={() => setSelectedDate(date)} aria-label={`Ver planificación del ${day} de ${monthLabel}`}><b>{day}</b>{dayEvents.slice(0, 3).map((item, eventIndex) => <small className={item.completed ? "completed-event" : ""} key={`${item.id || item.title}-${eventIndex}`}>{item.icon || "•"} {item.title}{item.completed ? " · Hecho" : ""}</small>)}</button>}</article>;
     })}</div>
     <div className="task-list">{monthTasks.map((task) => <div key={task.id}><span>{task.dueDate} · {task.title}</span><button onClick={async () => { await userDataApi.updateTask(task.id, { completed: true }); load(); }}><Check size={16} /> Hecho</button></div>)}</div>
-    {selectedDate && <div className="calendar-detail-backdrop" onClick={() => setSelectedDate(null)}><section className="calendar-day-detail" onClick={(event) => event.stopPropagation()}><button className="calendar-detail-close" onClick={() => setSelectedDate(null)} aria-label="Cerrar"><X size={20} /></button><span className="kicker">PLANIFICACIÓN DEL DÍA</span><h2>{new Date(`${selectedDate}T12:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}</h2>{selectedEvents.length ? <div className="calendar-detail-events">{selectedEvents.map((item, index) => <article className={item.completed ? "completed" : ""} key={`${item.id || item.title}-${index}`}><span>{item.icon || "•"}</span><div><b>{item.title}</b><small>{item.completed ? "Regada · cuidado completado" : item.plant || "Tarea programada"}</small></div>{item.watering && !item.completed && <button className="mark-watered-button" onClick={() => markWatered(item)} disabled={savingWatering === item.id}><Check size={16} /> {savingWatering === item.id ? "Guardando…" : "Marcar como regada"}</button>}{item.watering && item.completed && <strong className="watering-done"><Check size={15} /> Regada</strong>}</article>)}</div> : <p>No hay cuidados programados para este día.</p>}</section></div>}
+    {feedbackEvent && <div className="calendar-detail-backdrop" onClick={() => setFeedbackEvent(null)}><section className="watering-feedback" onClick={(event) => event.stopPropagation()}><Droplets size={32} /><h2>¿Cómo estaba el sustrato?</h2><p>Tu respuesta permite que PlantLive aprenda el ritmo real de este ejemplar.</p><div><button onClick={() => markWatered(feedbackEvent, "wet")}>Aún húmedo</button><button onClick={() => markWatered(feedbackEvent, "right")}>En su punto</button><button onClick={() => markWatered(feedbackEvent, "dry")}>Demasiado seco</button></div></section></div>}
+    {selectedDate && <div className="calendar-detail-backdrop" onClick={() => setSelectedDate(null)}><section className="calendar-day-detail" onClick={(event) => event.stopPropagation()}><button className="calendar-detail-close" onClick={() => setSelectedDate(null)} aria-label="Cerrar"><X size={20} /></button><span className="kicker">PLANIFICACIÓN DEL DÍA</span><h2>{new Date(`${selectedDate}T12:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}</h2>{selectedEvents.length ? <div className="calendar-detail-events">{selectedEvents.map((item, index) => <article className={item.completed ? "completed" : ""} key={`${item.id || item.title}-${index}`}><span>{item.icon || "•"}</span><div><b>{item.title}</b><small>{item.completed ? "Regada · cuidado completado" : item.plant || "Tarea programada"}</small></div>{item.watering && !item.completed && <button className="mark-watered-button" onClick={() => setFeedbackEvent(item)} disabled={savingWatering === item.id}><Check size={16} /> {savingWatering === item.id ? "Guardando…" : "Marcar como regada"}</button>}{item.watering && item.completed && <strong className="watering-done"><Check size={15} /> Regada</strong>}</article>)}</div> : <p>No hay cuidados programados para este día.</p>}</section></div>}
   </section></>;
 }

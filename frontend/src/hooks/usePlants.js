@@ -17,9 +17,26 @@ const datePlusFrom = (value, days) => {
   return date.toISOString().slice(0, 10);
 };
 
+const adjustedWaterDays = (plant, date = new Date(), weatherAdjustment = 0) => Math.max(1,
+  seasonalCareDays(plant, "riego", date) + Number(plant.wateringAdjustmentDays || 0) + weatherAdjustment);
+
 export function usePlants(user, notify) {
   const [plants, setPlants] = useState([]);
   const [loadingPlants, setLoadingPlants] = useState(false);
+  const [weatherAdjustment, setWeatherAdjustment] = useState(0);
+  const [weatherSummary, setWeatherSummary] = useState(null);
+
+  useEffect(() => {
+    if (!user) { setWeatherAdjustment(0); setWeatherSummary(null); return; }
+    userDataApi.settings().then(async (settings) => {
+      if (!settings.weatherEnabled || !settings.weatherLatitude || !settings.weatherLongitude) return;
+      const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${settings.weatherLatitude}&longitude=${settings.weatherLongitude}&current=temperature_2m,precipitation&timezone=auto`);
+      const current = (await response.json()).current;
+      const adjustment = current.temperature_2m >= 30 ? -2 : current.temperature_2m <= 12 ? 2 : current.precipitation >= 5 ? 1 : 0;
+      setWeatherAdjustment(adjustment);
+      setWeatherSummary({ temperature: current.temperature_2m, precipitation: current.precipitation, adjustment });
+    }).catch(() => {});
+  }, [user]);
 
   useEffect(() => {
     if (!user) { setPlants([]); return; }
@@ -40,11 +57,12 @@ export function usePlants(user, notify) {
     const imagen = plant.imagen || await findPlantPhoto(plant.nombreCientifico).catch(() => null);
     const item = {
       ...plant,
+      collectionStatus: plant.collectionStatus || "active",
       imagen,
       instanceId: globalThis.crypto?.randomUUID?.() || `plant-${Date.now()}`,
       nickname: plant.nombreComun,
-      nextWater: datePlus(seasonalCareDays(plant, "riego")),
-      nextFeed: datePlus(seasonalCareDays(plant, "abono")),
+      nextWater: plant.collectionStatus === "wishlist" ? null : datePlus(adjustedWaterDays(plant, new Date(), weatherAdjustment)),
+      nextFeed: plant.collectionStatus === "wishlist" ? null : datePlus(seasonalCareDays(plant, "abono")),
       notes: "",
     };
     const saved = await userDataApi.addPlant(item);
@@ -78,14 +96,14 @@ export function usePlants(user, notify) {
       ...conditions,
       instanceId: plant.instanceId,
       nickname: plant.nickname,
-      nextWater: datePlus(seasonalCareDays(refreshed, "riego")),
+      nextWater: datePlus(adjustedWaterDays({ ...refreshed, wateringAdjustmentDays: plant.wateringAdjustmentDays }, new Date(), weatherAdjustment)),
       nextFeed: datePlus(seasonalCareDays(refreshed, "abono")),
     };
     const saved = await userDataApi.updatePlant(plant.serverId, values);
     setPlants((current) => current.map((item) => item.instanceId === id ? saved : item));
     return saved;
   };
-  const upcoming = useMemo(() => plants.flatMap((plant) => [
+  const upcoming = useMemo(() => plants.filter((plant) => plant.collectionStatus !== "wishlist").flatMap((plant) => [
     { id: `${plant.instanceId}-water`, date: plant.nextWater, icon: "💧", action: "Revisar riego", plant: plant.nickname || plant.nombreComun },
     ...(seasonalCareDays(plant, "abono") > 0 ? [
       { id: `${plant.instanceId}-feed`, date: plant.nextFeed, icon: "🧪", action: "Abonar / fertilizar", plant: plant.nickname || plant.nombreComun },
@@ -101,24 +119,29 @@ export function usePlants(user, notify) {
       type: event.action.includes("riego") ? "water" : "fertilize",
     }).catch((error) => notify(error.message));
   };
-  const completeWatering = async (event) => {
+  const completeWatering = async (event, moistureFeedback = "right") => {
     const plant = plants.find((item) => item.instanceId === event.plantInstanceId);
     if (!plant || !event.date) return;
     const completedWaterings = [...new Set([...(plant.completedWaterings || []), event.date])].sort();
+    const previousAdjustment = Number(plant.wateringAdjustmentDays || 0);
+    const adjustmentChange = moistureFeedback === "wet" ? 1 : moistureFeedback === "dry" ? -1 : 0;
+    const wateringAdjustmentDays = Math.max(-4, Math.min(5, previousAdjustment + adjustmentChange));
     const values = {
       completedWaterings,
-      nextWater: datePlusFrom(event.date, seasonalCareDays(plant, "riego", new Date(`${event.date}T12:00:00`))),
+      wateringAdjustmentDays,
+      wateringFeedback: [...(plant.wateringFeedback || []), { date: event.date, moisture: moistureFeedback, adjustmentDays: wateringAdjustmentDays }].slice(-20),
+      nextWater: datePlusFrom(event.date, adjustedWaterDays({ ...plant, wateringAdjustmentDays }, new Date(`${event.date}T12:00:00`), weatherAdjustment)),
     };
     setPlants((current) => current.map((item) => item.instanceId === plant.instanceId ? { ...item, ...values } : item));
     try {
       await Promise.all([
         userDataApi.updatePlant(plant.serverId, values),
-        userDataApi.addCare(plant.serverId, { type: "water", notes: `Riego previsto ${event.date}` }),
+        userDataApi.addCare(plant.serverId, { type: "water", notes: `Riego ${event.date}; sustrato ${moistureFeedback}` }),
       ]);
     } catch (error) {
       notify(error.message);
       throw error;
     }
   };
-  return { plants, upcoming, loadingPlants, addPlant, updatePlant, refreshPlantCare, removePlant, markDone, completeWatering };
+  return { plants, upcoming, loadingPlants, weatherSummary, addPlant, updatePlant, refreshPlantCare, removePlant, markDone, completeWatering };
 }

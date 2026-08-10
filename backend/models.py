@@ -84,6 +84,10 @@ class UserSettings(Base):
     email_notifications = Column(Boolean, default=False, nullable=False)
     push_notifications = Column(Boolean, default=True, nullable=False)
     ai_consent = Column(Boolean, default=False, nullable=False)
+    weather_enabled = Column(Boolean, default=False, nullable=False)
+    weather_latitude = Column(String(30), nullable=True)
+    weather_longitude = Column(String(30), nullable=True)
+    weather_location = Column(String(120), nullable=True)
 
 
 class CustomTask(Base):
