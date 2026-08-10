@@ -102,6 +102,70 @@ const RETAIL_GROUPS = {
   ],
 };
 
+// Selección de especies que el usuario suele encontrar en viveros de interior.
+// También resuelve nombres comerciales que ya no coinciden con el género botánico
+// aceptado (por ejemplo, muchas "calateas" ahora son Goeppertia).
+const INDOOR_RETAIL_CATALOG = [
+  ["Calatea orbifolia", "Goeppertia orbifolia", ["calatea", "calateas", "calathea", "calatheas"]],
+  ["Calatea makoyana", "Goeppertia makoyana", ["calatea", "calateas", "calathea", "calatheas"]],
+  ["Calatea ornata", "Goeppertia ornata", ["calatea", "calateas", "calathea", "calatheas"]],
+  ["Calatea lancifolia", "Goeppertia insignis", ["calatea", "calateas", "calathea", "calatheas"]],
+  ["Calatea roseopicta", "Goeppertia roseopicta", ["calatea", "calateas", "calathea", "calatheas"]],
+  ["Calatea warscewiczii", "Goeppertia warscewiczii", ["calatea", "calateas", "calathea", "calatheas"]],
+  ["Maranta leuconeura", "Maranta leuconeura", ["calatea", "calateas", "maranta", "marantas"]],
+  ["Stromanthe triostar", "Stromanthe sanguinea", ["calatea", "calateas", "stromanthe"]],
+  ["Monstera deliciosa", "Monstera deliciosa", ["monstera", "monsteras", "plantas interior", "planta interior"]],
+  ["Monstera adansonii", "Monstera adansonii", ["monstera", "monsteras", "plantas interior", "planta interior"]],
+  ["Poto dorado", "Epipremnum aureum", ["poto", "potos", "pothos", "plantas interior", "planta interior"]],
+  ["Poto Cebu Blue", "Epipremnum pinnatum", ["poto", "potos", "pothos"]],
+  ["Filodendro corazón", "Philodendron hederaceum", ["filodendro", "filodendros", "philodendron", "philodendrons", "plantas interior"]],
+  ["Philodendron rojo", "Philodendron erubescens", ["filodendro", "filodendros", "philodendron", "philodendrons"]],
+  ["Ficus elástica", "Ficus elastica", ["ficus", "plantas interior", "planta interior"]],
+  ["Ficus lyrata", "Ficus lyrata", ["ficus", "plantas interior", "planta interior"]],
+  ["Ficus benjamina", "Ficus benjamina", ["ficus"]],
+  ["Peperomia obtusifolia", "Peperomia obtusifolia", ["peperomia", "peperomias", "plantas interior"]],
+  ["Peperomia sandía", "Peperomia argyreia", ["peperomia", "peperomias"]],
+  ["Pilea peperomioides", "Pilea peperomioides", ["pilea", "planta del dinero", "plantas interior"]],
+  ["Cinta", "Chlorophytum comosum", ["cinta", "malamadre", "plantas interior", "planta interior"]],
+  ["Lirio de la paz", "Spathiphyllum wallisii", ["espatifilo", "lirio de la paz", "plantas interior", "planta interior"]],
+  ["Zamioculca", "Zamioculcas zamiifolia", ["zamioculca", "zamioculcas", "plantas interior", "poca luz"]],
+  ["Sansevieria", "Dracaena trifasciata", ["sansevieria", "lengua de suegra", "dracaena", "plantas interior", "poca luz"]],
+  ["Drácena marginata", "Dracaena marginata", ["dracena", "dracaena", "plantas interior"]],
+  ["Aglaonema", "Aglaonema commutatum", ["aglaonema", "aglaonemas", "plantas interior", "poca luz"]],
+  ["Singonio", "Syngonium podophyllum", ["singonio", "syngonium", "plantas interior"]],
+  ["Begonia maculata", "Begonia maculata", ["begonia", "begonias", "plantas interior"]],
+  ["Pachira acuática", "Pachira aquatica", ["pachira", "plantas interior"]],
+  ["Anturio", "Anthurium andraeanum", ["anturio", "anthurium", "plantas interior"]],
+  ["Alocasia zebrina", "Alocasia zebrina", ["alocasia", "alocasias", "plantas interior"]],
+  ["Hoya carnosa", "Hoya carnosa", ["hoya", "hoyas", "flor de cera", "plantas interior"]],
+  ["Cadena de corazones", "Ceropegia woodii", ["ceropegia", "cadena de corazones", "plantas interior"]],
+];
+
+const retailPhotoCache = new Map();
+const retailPhoto = (scientificName) => {
+  if (!retailPhotoCache.has(scientificName)) retailPhotoCache.set(scientificName, findPlantPhoto(scientificName).catch(() => null));
+  return retailPhotoCache.get(scientificName);
+};
+
+async function searchIndoorRetailCatalog(normalizedInput) {
+  const singular = normalizedInput.replace(/s$/, "");
+  const matches = INDOOR_RETAIL_CATALOG.filter(([common, scientific, keywords]) => {
+    const names = [common, scientific, ...keywords].map(normalizeTaxon);
+    return names.some((name) => name === normalizedInput || name === singular || name.includes(normalizedInput));
+  });
+  if (!matches.length) return [];
+  const results = await Promise.all(matches.slice(0, 24).map(async ([common, scientific]) => ({
+    id: `retail-${normalizeTaxon(scientific).replace(/\s/g, "-")}`,
+    nombreComun: common,
+    nombreCientifico: scientific,
+    categoria: "Planta de interior habitual en viveros",
+    descripcion: `${common}, especie ornamental cultivada habitualmente como planta de interior.`,
+    imagen: await retailPhoto(scientific),
+  })));
+  const withPhoto = results.filter((plant) => plant.imagen);
+  return withPhoto.length >= Math.min(4, results.length) ? withPhoto : results;
+}
+
 // iNaturalist ordena por observaciones silvestres. Esta lista hace que las
 // especies habituales en viveros aparezcan antes sin ocultar el catálogo global.
 const COMMERCIAL_SPECIES = [
@@ -247,6 +311,10 @@ async function searchRetailGroup(groupNames) {
 
 export async function searchPlants(query) {
   const normalizedInput = normalizeTaxon(query);
+  const indoorRetailResults = await searchIndoorRetailCatalog(normalizedInput);
+  if (indoorRetailResults.length >= 2) {
+    return indoorRetailResults.sort((a, b) => Number(Boolean(b.imagen)) - Number(Boolean(a.imagen)));
+  }
   const retailGroup = RETAIL_GROUPS[normalizedInput];
   if (retailGroup) {
     const retailResults = await searchRetailGroup(retailGroup);
@@ -287,16 +355,23 @@ export async function searchPlants(query) {
     Number(Boolean(b.default_photo)) - Number(Boolean(a.default_photo)) ||
     (b.observations_count || 0) - (a.observations_count || 0)
   );
-  return Promise.all(taxa.map(async (taxon) => ({
+  const usefulTaxa = taxa.filter((taxon, index) => taxon.default_photo || commercialRank(taxon) < 1000 || index < 12).slice(0, 36);
+  const scientificResults = await Promise.all(usefulTaxa.map(async (taxon, index) => ({
       id: `inat-${taxon.id}`,
       taxonId: taxon.id,
       nombreComun: spanishPlantName(taxon, genus),
       nombreCientifico: taxon.name,
       categoria: genus?.name || "planta",
       descripcion: `Especie aceptada de ${genus?.name || taxon.name.split(" ")[0]}.`,
-      imagen: taxon.default_photo?.medium_url?.replace("medium.", "large.") ||
-        await findWikimediaPhoto(taxon.name).catch(() => null),
+      imagen: taxon.default_photo?.medium_url ||
+        (index < 10 ? await findWikimediaPhoto(taxon.name).catch(() => null) : null),
     })));
+  const combined = [...new Map(
+    [...indoorRetailResults, ...scientificResults]
+      .map((plant) => [normalizeTaxon(plant.nombreCientifico), plant])
+  ).values()].sort((a, b) => Number(Boolean(b.imagen)) - Number(Boolean(a.imagen)));
+  const withPhoto = combined.filter((plant) => plant.imagen);
+  return withPhoto.length >= 8 ? withPhoto : combined;
 }
 
 export function seasonalCareDays(plant, type = "riego", date = new Date()) {
