@@ -7,6 +7,8 @@ import { PlantChatbot } from "./components/PlantChatbot";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SeoManager } from "./components/SeoManager";
 import { Analytics } from "./components/Analytics";
+import { FeedbackButton } from "./components/FeedbackButton";
+import { FirstUseGuide } from "./components/FirstUseGuide";
 import { AuthProvider } from "./contexts/AuthContext";
 import { useAuth } from "./contexts/authStore";
 import { useCareNotifications } from "./hooks/useCareNotifications";
@@ -61,6 +63,8 @@ function App() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes></main>
     <PlantChatbot plants={garden.plants} authenticated={Boolean(user)} notify={notify} />
+    <FeedbackButton user={user} notify={notify} />
+    <FirstUseGuide user={user} plantCount={garden.plants.length} loadingPlants={garden.loadingPlants} />
     <Footer />
   </div>;
 }

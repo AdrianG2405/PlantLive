@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, Brain, CloudSun, Clock, Download, KeyRound, LocateFixed, LogOut, Save, ShieldCheck, Trash2 } from "lucide-react";
+import { Bell, Brain, CloudSun, Clock, Download, GraduationCap, KeyRound, LocateFixed, LogOut, Save, ShieldCheck, Trash2 } from "lucide-react";
 import { authApi, userDataApi } from "../services/plantliveApi";
 import { useAuth } from "../contexts/authStore";
 
@@ -78,6 +78,7 @@ export function SettingsPage({ notify }) {
       <Toggle label="Notificaciones emergentes" checked={settings.pushNotifications} onChange={(value) => setSettings({ ...settings, pushNotifications: value })} />
       <button type="button" className="secondary-action" onClick={testNotification} disabled={testingNotification}><Bell size={17} /> {testingNotification ? "Enviando prueba…" : "Enviar notificación de prueba"}</button>
     </div>
+    <div className="settings-card"><h2><GraduationCap size={21} /> Guía de primer uso</h2><p>Repasa cómo añadir una planta, personalizar sus condiciones y utilizar el calendario, el diagnóstico y el chatbot.</p><button type="button" className="secondary-action" onClick={() => window.dispatchEvent(new Event("plantlive:open-onboarding"))}><GraduationCap size={17} /> Volver a ver la guía</button></div>
     <div className="settings-card"><h2><Brain size={21} /> Inteligencia artificial</h2><div className="consent-copy"><ShieldCheck size={24} /><p>El modo avanzado envía la fotografía a proveedores tecnológicos especializados. Actívalo solo si aceptas este procesamiento externo; encontrarás el detalle en la política de privacidad.</p></div>
       <Toggle label="Acepto el análisis mediante servicios externos" checked={settings.aiConsent} onChange={(value) => setSettings({ ...settings, aiConsent: value })} />
     </div>

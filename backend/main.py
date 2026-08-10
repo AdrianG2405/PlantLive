@@ -2,6 +2,7 @@ from pathlib import Path
 import logging
 import json
 import hashlib
+import html
 import os
 import re
 import secrets
@@ -28,7 +29,7 @@ from database import Base, apply_compatible_schema_updates, engine, get_db
 from hybrid_ai_service import advanced_ai_configured, crear_ficha_avanzada, diagnosticar_avanzado, gemini_configured, preguntar_avanzado
 from models import ApiUsage, AuthSession, CareEvent, CustomTask, DiagnosisHistory, EmailVerificationToken, LegalAcceptance, NotificationDelivery, PasswordResetToken, Planta, PushSubscription, User, UserFeedback, UserPlant, UserSettings
 from storage_service import UPLOAD_DIR, delete_plant_photo, save_plant_photo
-from email_service import EmailDeliveryError, send_email_verification, send_password_reset
+from email_service import EmailDeliveryError, send_email, send_email_verification, send_password_reset
 from notification_worker import run_once as send_due_notifications, send_test_push
 
 Base.metadata.create_all(bind=engine)
@@ -793,16 +794,28 @@ def update_task(task_id: int, datos: dict, db: Session = Depends(get_db), user: 
 def save_feedback(datos: dict, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     feedback_type = datos.get("type")
     rating = datos.get("rating")
-    if feedback_type not in {"diagnosis", "care", "chat"} or rating not in {-1, 1}:
+    allowed_ratings = {"diagnosis", "care", "chat"}
+    open_comments = {"idea", "bug", "general"}
+    if feedback_type not in allowed_ratings | open_comments or (feedback_type in allowed_ratings and rating not in {-1, 1}) or (feedback_type in open_comments and rating != 0):
         raise HTTPException(400, "Valoración no válida")
+    comment = str(datos.get("comment", ""))[:1000] or None
     db.add(UserFeedback(
         user_id=user.id,
         feedback_type=feedback_type,
         reference=str(datos.get("reference", ""))[:120] or None,
         rating=rating,
-        comment=str(datos.get("comment", ""))[:1000] or None,
+        comment=comment,
     ))
     db.commit()
+    if feedback_type in open_comments and comment and os.getenv("RESEND_API_KEY"):
+        try:
+            send_email(
+                os.getenv("SUPPORT_EMAIL", "plantlivesupport@gmail.com"),
+                f"Nuevo comentario de PlantLive: {feedback_type}",
+                f"<div style='font-family:Arial'><h2>Nuevo comentario</h2><p><b>Tipo:</b> {html.escape(feedback_type)}</p><p><b>Usuario:</b> {html.escape(user.email)}</p><p><b>Página:</b> {html.escape(str(datos.get('reference', ''))[:120])}</p><p>{html.escape(comment)}</p></div>",
+            )
+        except Exception:
+            logger.exception("No se pudo enviar el comentario a soporte")
     return {"ok": True}
 
 
