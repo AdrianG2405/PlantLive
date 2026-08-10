@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, CalendarPlus, Camera, CheckCircle2, Eye, ImagePlus, Leaf, Plus, ScanSearch, ShieldCheck, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createCareProfile, diagnosePlant, findPlantPhoto, userDataApi } from "../services/plantliveApi";
+import { trackEvent } from "../utils/analytics";
 
 export function DiagnosisPage({ plants, addPlant, notify, authenticated }) {
   const navigate = useNavigate();
@@ -61,6 +62,7 @@ export function DiagnosisPage({ plants, addPlant, notify, authenticated }) {
     try {
       const plant = plants.find((item) => item.instanceId === plantId);
       const data = await diagnosePlant({ imagenes: photos, sintomas: symptoms, planta: plant?.nombreCientifico });
+      trackEvent("diagnosis_completed", { has_known_plant: Boolean(plant), photo_count: photos.length });
       setDiagnosis(data.respuesta);
       if (data.identifiedPlant?.nombreCientifico) setIdentifiedPlant(data.identifiedPlant);
       loadHistory();

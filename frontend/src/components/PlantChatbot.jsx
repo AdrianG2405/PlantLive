@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Bot, Camera, ImagePlus, Leaf, Send, Trash2, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { askPlantLive } from "../services/plantliveApi";
+import { trackEvent } from "../utils/analytics";
 
 const welcome = {
   role: "assistant",
@@ -80,6 +81,7 @@ export function PlantChatbot({ plants, authenticated, notify }) {
         imagen: image || undefined,
       });
       setMessages((current) => [...current, { role: "assistant", content: data.respuesta }]);
+      trackEvent("chatbot_question_answered", { has_plant_context: Boolean(plant), has_image: Boolean(image) });
     } catch (error) {
       notify(error.message);
       setMessages((current) => [...current, {

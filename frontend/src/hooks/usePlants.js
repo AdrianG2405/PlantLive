@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createCareProfile, findPlantPhoto, seasonalCareDays, userDataApi } from "../services/plantliveApi";
+import { trackEvent } from "../utils/analytics";
 
 const datePlus = (days) => {
   const interval = Number(days);
@@ -67,6 +68,10 @@ export function usePlants(user, notify) {
     };
     const saved = await userDataApi.addPlant(item);
     setPlants((current) => [saved, ...current]);
+    trackEvent("plant_added", { collection_status: item.collectionStatus || "active" });
+    if ((!item.collectionStatus || item.collectionStatus === "active") && !plants.some((current) => !current.collectionStatus || current.collectionStatus === "active")) {
+      trackEvent("first_plant_added");
+    }
     return saved;
   };
   const updatePlant = (id, values) => {

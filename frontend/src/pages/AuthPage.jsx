@@ -3,6 +3,7 @@ import { Eye, EyeOff, Leaf, LogIn, UserPlus } from "lucide-react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/authStore";
 import { authApi } from "../services/plantliveApi";
+import { trackEvent } from "../utils/analytics";
 
 export function AuthPage({ notify }) {
   const { user, authenticate } = useAuth();
@@ -39,10 +40,12 @@ export function AuthPage({ notify }) {
       }
       const result = await authenticate(mode, form);
       if (mode === "register" && result?.verificationRequired) {
+        trackEvent("sign_up", { method: "email" });
         setVerificationEmail(result.email);
         notify(result.emailSent ? "Te hemos enviado un enlace de verificación." : "Cuenta creada. Configura el envío de correo para recibir el enlace.");
         return;
       }
+      if (mode === "login") trackEvent("login", { method: "email" });
       notify(mode === "login" ? "Bienvenido de nuevo." : "Tu cuenta está lista.");
       navigate(location.state?.from || "/plantas", { replace: true });
     } catch (error) { notify(error.message); }

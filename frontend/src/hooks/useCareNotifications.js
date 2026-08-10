@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { userDataApi } from "../services/plantliveApi";
+import { trackEvent } from "../utils/analytics";
 
 const toUint8Array = (value) => {
   const padding = "=".repeat((4 - value.length % 4) % 4);
@@ -73,14 +74,17 @@ export function useCareNotifications(upcoming, enabled) {
     setSubscriptionStatus("syncing");
     const registration = await navigator.serviceWorker.ready;
     let subscription = await registration.pushManager.getSubscription();
+    let created = false;
     if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: toUint8Array(vapidKey),
       });
+      created = true;
     }
     await userDataApi.savePushSubscription(subscription.toJSON());
     setSubscriptionStatus("active");
+    if (created) trackEvent("notifications_activated");
     return true;
   }, [enabled, supported]);
 
