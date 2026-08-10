@@ -189,7 +189,9 @@ export async function findPlantPhoto(scientificName) {
   const taxon = data.results?.filter(isPlantTaxon).find((item) =>
     normalizeTaxon(item.name) === expected || normalizeTaxon(item.preferred_common_name) === expected
   );
-  const direct = taxon?.default_photo?.medium_url?.replace("medium.", "large.") ||
+  // La versión medium es suficiente para las tarjetas y evita descargar imágenes
+  // de portada de varios cientos de KB en conexiones móviles.
+  const direct = taxon?.default_photo?.medium_url ||
     await findObservationPhoto(taxon?.id).catch(() => null) ||
     await findWikimediaPhoto(scientificName).catch(() => null);
   if (direct) return direct;
