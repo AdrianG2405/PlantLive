@@ -6,6 +6,7 @@ import { Header } from "./components/Header";
 import { PlantChatbot } from "./components/PlantChatbot";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { SeoManager } from "./components/SeoManager";
+import { Analytics } from "./components/Analytics";
 import { AuthProvider } from "./contexts/AuthContext";
 import { useAuth } from "./contexts/authStore";
 import { useCareNotifications } from "./hooks/useCareNotifications";
@@ -38,6 +39,7 @@ function App() {
   const notifications = useCareNotifications(garden.upcoming, Boolean(user));
   return <div className="app">
     <SeoManager />
+    <Analytics />
     <Header />
     {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")}>×</button></div>}
     <main><Routes>
