@@ -3,14 +3,19 @@ import { Bell, BellRing, CalendarDays, Camera, Check, Droplets, Heart, Leaf, Plu
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { PlantModal } from "../components/PlantModal";
+import { searchPlants } from "../services/plantliveApi";
 
 export function MyPlantsPage({
-  plants, upcoming, updatePlant, refreshPlantCare, removePlant, markDone,
+  plants, upcoming, addPlant, updatePlant, refreshPlantCare, removePlant, markDone,
   notifications, notify, loadingPlants, authenticated, weatherSummary,
 }) {
   const [selected, setSelected] = useState(null);
   const [filter, setFilter] = useState("");
   const [collectionView, setCollectionView] = useState("active");
+  const [wishQuery, setWishQuery] = useState("");
+  const [wishResults, setWishResults] = useState([]);
+  const [wishSearching, setWishSearching] = useState(false);
+  const [savingWish, setSavingWish] = useState("");
   const navigate = useNavigate();
   const visiblePlants = useMemo(() => {
     const term = filter.toLowerCase().trim();
@@ -35,6 +40,21 @@ export function MyPlantsPage({
     } catch (error) {
       notify(error.message || "No se pudieron activar las notificaciones.");
     }
+  };
+  const searchWishlist = async (event) => {
+    event.preventDefault();
+    if (wishQuery.trim().length < 2) return;
+    setWishSearching(true); setWishResults([]);
+    try { setWishResults((await searchPlants(wishQuery)).slice(0, 12)); }
+    catch (error) { notify(error.message); }
+    finally { setWishSearching(false); }
+  };
+  const saveWish = async (plant) => {
+    if (plants.some((item) => item.nombreCientifico === plant.nombreCientifico && item.collectionStatus === "wishlist")) return notify("Esta planta ya está en tu lista de deseos.");
+    setSavingWish(plant.id);
+    try { await addPlant({ ...plant, collectionStatus: "wishlist" }); notify(`${plant.nombreComun} se ha añadido a tu lista de deseos.`); }
+    catch (error) { notify(error.message); }
+    finally { setSavingWish(""); }
   };
 
   return <div className="garden-page">
@@ -65,6 +85,7 @@ export function MyPlantsPage({
         {!!plants.length && <label className="garden-search"><Search size={17} /><input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="Buscar en mi jardín" /></label>}
         {authenticated && notifications.subscriptionStatus === "active" ? <span className="notifications-on"><BellRing size={16} /> Avisos activos</span> : <button className="notification-button" onClick={activateNotifications} disabled={notifications.subscriptionStatus === "syncing"}><Bell size={17} /> {notifications.subscriptionStatus === "syncing" ? "Conectando avisos…" : notifications.permission === "granted" ? "Reintentar avisos" : "Activar avisos"}</button>}
       </div></div>
+      {collectionView === "wishlist" && <section className="wishlist-search-panel"><div><span className="kicker">AÑADIR UN DESEO</span><h3>¿Qué planta te gustaría tener?</h3><p>Busca por nombre común o científico y guárdala para más adelante.</p></div><form onSubmit={searchWishlist}><Search size={19} /><input value={wishQuery} onChange={(event) => setWishQuery(event.target.value)} placeholder="Ej. Pachira aquatica, monstera, calatea…" /><button disabled={wishSearching}>{wishSearching ? "Buscando…" : "Buscar"}</button></form>{wishSearching && <div className="route-loading wishlist-loading"><span className="spinner dark-spinner" /> Buscando plantas…</div>}{!!wishResults.length && <div className="wishlist-search-results">{wishResults.map((plant) => <article key={plant.id}><div className="wishlist-result-photo">{plant.imagen ? <img src={plant.imagen} alt={plant.nombreComun} /> : <Leaf size={30} />}</div><div><b>{plant.nombreComun}</b><i>{plant.nombreCientifico}</i></div><button onClick={() => saveWish(plant)} disabled={savingWish === plant.id}><Heart size={16} /> {savingWish === plant.id ? "Guardando…" : "Añadir"}</button></article>)}</div>}</section>}
 
       {loadingPlants ? <div className="route-loading"><span className="spinner dark-spinner" /> Cargando tu jardín…</div> :
         visiblePlants.length ? <div className="modern-garden-grid">{visiblePlants.map((plant, index) => <motion.button className="modern-plant-card" key={plant.instanceId} onClick={() => setSelected(plant)} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * .04 }}>
