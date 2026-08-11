@@ -28,6 +28,7 @@ import { TermsPage } from "./pages/TermsPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { ChatPage } from "./pages/ChatPage";
 import { BlogArticlePage, BlogPage } from "./pages/BlogPage";
+import { PlantGuidePage, PlantGuidesPage } from "./pages/PlantGuidesPage";
 import { capturePhoto } from "./utils/nativeCamera";
 
 function App() {
@@ -88,6 +89,8 @@ function App() {
       <Route path="/chatbot" element={<ChatPage />} />
       <Route path="/blog" element={<BlogPage />} />
       <Route path="/blog/:slug" element={<BlogArticlePage />} />
+      <Route path="/plantas-guia" element={<PlantGuidesPage />} />
+      <Route path="/plantas-guia/:slug" element={<PlantGuidePage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes></main>
     <PlantChatbot plants={garden.plants} authenticated={Boolean(user)} notify={notify} />
