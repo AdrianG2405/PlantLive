@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Bell, Brain, CloudSun, Clock, Download, GraduationCap, KeyRound, LocateFixed, LogOut, Save, ShieldCheck, Trash2 } from "lucide-react";
 import { authApi, userDataApi } from "../services/plantliveApi";
 import { useAuth } from "../contexts/authStore";
+import { Capacitor } from "@capacitor/core";
+import { LocalNotifications } from "@capacitor/local-notifications";
 
 export function SettingsPage({ notify }) {
   const { logout } = useAuth();
@@ -22,8 +24,22 @@ export function SettingsPage({ notify }) {
   const testNotification = async () => {
     setTestingNotification(true);
     try {
-      await userDataApi.testNotification();
-      notify("Notificación de prueba enviada.");
+      if (Capacitor.isNativePlatform()) {
+        let permission = await LocalNotifications.checkPermissions();
+        if (permission.display !== "granted") permission = await LocalNotifications.requestPermissions();
+        if (permission.display !== "granted") throw new Error("Android no ha concedido permiso para mostrar notificaciones.");
+        await LocalNotifications.schedule({ notifications: [{
+          id: Math.floor(Date.now() % 2147483647),
+          title: "PlantLive · Notificación de prueba",
+          body: "Los avisos de cuidados están funcionando correctamente.",
+          schedule: { at: new Date(Date.now() + 1500) },
+          extra: { source: "plantlive-test" },
+        }] });
+        notify("Prueba nativa programada. Aparecerá en unos segundos.");
+      } else {
+        await userDataApi.testNotification();
+        notify("Notificación de prueba enviada.");
+      }
     } catch (error) {
       notify(error.message);
     } finally {
