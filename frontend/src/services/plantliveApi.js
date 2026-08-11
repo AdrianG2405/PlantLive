@@ -1,4 +1,4 @@
-const API = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? "https://api.plantlive.es" : "http://localhost:8000");
 const PLANTAE_TAXON_ID = "47126";
 
 async function request(path, options) {
@@ -160,9 +160,7 @@ const INDOOR_RETAIL_CATALOG = [
 const retailPhotoCache = new Map();
 const retailPhoto = (scientificName) => {
   if (!retailPhotoCache.has(scientificName)) {
-    retailPhotoCache.set(scientificName, (async () =>
-      await findWikipediaPhoto(scientificName) || await findPlantPhoto(scientificName)
-    )().catch(() => null));
+    retailPhotoCache.set(scientificName, findPlantPhoto(scientificName).catch(() => null));
   }
   return retailPhotoCache.get(scientificName);
 };
@@ -255,38 +253,6 @@ const spanishPlantName = (taxon, genus) => {
     `Especie de ${genus?.preferred_common_name || genus?.name || taxon.name.split(" ")[0]}`;
 };
 
-async function findWikimediaPhoto(scientificName) {
-  const params = new URLSearchParams({
-    action: "query", generator: "search", gsrsearch: `"${scientificName}"`,
-    gsrnamespace: "6", gsrlimit: "5", prop: "imageinfo",
-    iiprop: "url", iiurlwidth: "900", format: "json", origin: "*",
-  });
-  const response = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`);
-  if (!response.ok) return null;
-  const pages = Object.values((await response.json()).query?.pages || {});
-  const expected = normalizeTaxon(scientificName);
-  const page = pages.find((item) => normalizeTaxon(item.title).includes(expected)) || pages[0];
-  return page?.imageinfo?.[0]?.thumburl || null;
-}
-
-// La imagen principal de una ficha de Wikipedia suele representar mejor la
-// planta completa que una observación silvestre o una fotografía aleatoria.
-async function findWikipediaPhoto(scientificName) {
-  for (const language of ["es", "en"]) {
-    const params = new URLSearchParams({
-      action: "query", titles: scientificName, redirects: "1",
-      prop: "pageimages", piprop: "thumbnail", pithumbsize: "900",
-      format: "json", origin: "*",
-    });
-    const response = await fetch(`https://${language}.wikipedia.org/w/api.php?${params}`);
-    if (!response.ok) continue;
-    const pages = Object.values((await response.json()).query?.pages || {});
-    const image = pages.find((page) => page.thumbnail?.source)?.thumbnail?.source;
-    if (image) return image;
-  }
-  return null;
-}
-
 async function findObservationPhoto(taxonId) {
   if (!taxonId) return null;
   const params = new URLSearchParams({
@@ -312,8 +278,7 @@ export async function findPlantPhoto(scientificName) {
   // La versión medium es suficiente para las tarjetas y evita descargar imágenes
   // de portada de varios cientos de KB en conexiones móviles.
   const direct = taxon?.default_photo?.medium_url ||
-    await findObservationPhoto(taxon?.id).catch(() => null) ||
-    await findWikimediaPhoto(scientificName).catch(() => null);
+    await findObservationPhoto(taxon?.id).catch(() => null);
   if (direct) return direct;
 
   const baseName = scientificName
@@ -321,7 +286,7 @@ export async function findPlantPhoto(scientificName) {
     .replace(/\s+['â€˜â€™"].*$/, "")
     .trim();
   if (normalizeTaxon(baseName) === expected) return null;
-  return findWikimediaPhoto(baseName).catch(() => null);
+  return findPlantPhoto(baseName).catch(() => null);
 }
 
 async function searchRetailGroup(groupNames) {
@@ -428,7 +393,7 @@ export async function searchPlants(query) {
       categoria: genus?.name || "planta",
       descripcion: `Especie aceptada de ${genus?.name || taxon.name.split(" ")[0]}.`,
       imagen: taxon.default_photo?.medium_url ||
-        (index < 10 ? await findWikimediaPhoto(taxon.name).catch(() => null) : null),
+        (index < 10 ? await findObservationPhoto(taxon.id).catch(() => null) : null),
     })));
   const combined = [...new Map(
     [...indoorRetailResults, ...scientificResults]

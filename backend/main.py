@@ -37,9 +37,13 @@ apply_compatible_schema_updates()
 UPLOAD_DIR.mkdir(exist_ok=True)
 
 app = FastAPI(title="PlantLive API", version="2.0.0")
+cors_origins = [item.strip() for item in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",") if item.strip()]
+for native_origin in ("https://localhost", "capacitor://localhost"):
+    if native_origin not in cors_origins:
+        cors_origins.append(native_origin)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[item.strip() for item in os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
