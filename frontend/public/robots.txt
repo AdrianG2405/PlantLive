@@ -1,5 +1,6 @@
 User-agent: *
 Allow: /
+Allow: /plantas-guia
 Disallow: /panel
 Disallow: /plantas$
 Disallow: /calendario
