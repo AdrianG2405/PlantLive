@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.get_login_creds"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "es.plantlive.app",
+      "sha256_cert_fingerprints": [
+        "C0:D4:B3:3E:2B:89:57:BF:CB:12:CB:44:08:EE:81:59:2E:12:42:D8:F5:AA:A6:96:44:0A:14:9F:56:F9:F6:33"
+      ]
+    }
+  }
+]

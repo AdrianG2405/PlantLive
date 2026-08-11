@@ -346,8 +346,18 @@ def delete_account(datos: dict, db: Session = Depends(get_db), user: User = Depe
     if datos.get("confirmation") != "ELIMINAR" or not verify_password(datos.get("password", ""), user.password_hash):
         raise HTTPException(400, "Confirmación o contraseña incorrectas")
     plants = db.query(UserPlant).filter(UserPlant.user_id == user.id).all()
+    def photo_urls(value):
+        if isinstance(value, dict):
+            for nested in value.values():
+                yield from photo_urls(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                yield from photo_urls(nested)
+        elif isinstance(value, str) and ("/storage/v1/object/public/" in value or "/uploads/" in value):
+            yield value
+
     for row in plants:
-        for photo_url in (json.loads(row.data).get("gallery") or []):
+        for photo_url in set(photo_urls(json.loads(row.data))):
             try:
                 delete_plant_photo(photo_url, user.id)
             except Exception:

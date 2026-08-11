@@ -1,6 +1,7 @@
 package es.plantlive.app;
 
 import android.os.CancellationSignal;
+import androidx.core.content.ContextCompat;
 import androidx.credentials.CreatePasswordRequest;
 import androidx.credentials.CreateCredentialResponse;
 import androidx.credentials.Credential;
@@ -12,6 +13,7 @@ import androidx.credentials.GetPasswordOption;
 import androidx.credentials.PasswordCredential;
 import androidx.credentials.exceptions.CreateCredentialException;
 import androidx.credentials.exceptions.GetCredentialException;
+import androidx.credentials.exceptions.NoCredentialException;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -36,7 +38,7 @@ public class PasswordManagerPlugin extends Plugin {
             call.reject("Faltan el correo o la contraseña.");
             return;
         }
-        Executor executor = getActivity().getMainExecutor();
+        Executor executor = ContextCompat.getMainExecutor(getContext());
         manager.createCredentialAsync(
             getActivity(),
             new CreatePasswordRequest(email, password),
@@ -54,7 +56,7 @@ public class PasswordManagerPlugin extends Plugin {
         GetCredentialRequest request = new GetCredentialRequest.Builder()
             .addCredentialOption(new GetPasswordOption())
             .build();
-        Executor executor = getActivity().getMainExecutor();
+        Executor executor = ContextCompat.getMainExecutor(getContext());
         manager.getCredentialAsync(
             getActivity(),
             request,
@@ -73,7 +75,13 @@ public class PasswordManagerPlugin extends Plugin {
                     data.put("password", password.getPassword());
                     call.resolve(data);
                 }
-                @Override public void onError(GetCredentialException error) { call.reject(error.getMessage(), error); }
+                @Override public void onError(GetCredentialException error) {
+                    if (error instanceof NoCredentialException) {
+                        call.reject("No hay cuentas de PlantLive guardadas en el gestor de contraseñas.", error);
+                        return;
+                    }
+                    call.reject(error.getMessage(), error);
+                }
             }
         );
     }

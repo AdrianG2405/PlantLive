@@ -12,6 +12,7 @@ backend/venv/
 # Node/Vite
 node_modules/
 dist/
+.gradle*-cache/
 
 # Local data
 *.db
