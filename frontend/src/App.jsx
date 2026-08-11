@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BellRing } from "lucide-react";
 import "./App.css";
 import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
@@ -33,7 +34,9 @@ import { capturePhoto } from "./utils/nativeCamera";
 function App() {
   const { user } = useAuth();
   const [notice, setNotice] = useState("");
+  const [webPermissionPrompt, setWebPermissionPrompt] = useState(false);
   const noticeTimer = useRef();
+  const nativePermissionRequested = useRef(false);
   const notify = useCallback((message) => {
     setNotice(message);
     window.clearTimeout(noticeTimer.current);
@@ -41,6 +44,36 @@ function App() {
   }, []);
   const garden = usePlants(user, notify);
   const notifications = useCareNotifications(garden.upcoming, Boolean(user));
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform() || notifications.permission !== "prompt" || nativePermissionRequested.current) return undefined;
+    nativePermissionRequested.current = true;
+    const timer = window.setTimeout(() => {
+      notifications.requestPermission().catch((error) => notify(error.message));
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [notifications, notify]);
+  useEffect(() => {
+    if (Capacitor.isNativePlatform() || !user || notifications.permission !== "default") {
+      setWebPermissionPrompt(false);
+      return undefined;
+    }
+    let dismissed = false;
+    try { dismissed = sessionStorage.getItem("plantlive-web-permission-dismissed") === "1"; } catch { /* Ignore blocked storage. */ }
+    if (dismissed) return undefined;
+    const timer = window.setTimeout(() => setWebPermissionPrompt(true), 900);
+    return () => window.clearTimeout(timer);
+  }, [notifications.permission, user]);
+  const requestWebNotifications = async () => {
+    try {
+      const result = await notifications.requestPermission();
+      setWebPermissionPrompt(false);
+      notify(result === "granted" ? "Notificaciones activadas." : "No se activaron las notificaciones.");
+    } catch (error) { setWebPermissionPrompt(false); notify(error.message); }
+  };
+  const dismissWebNotifications = () => {
+    setWebPermissionPrompt(false);
+    try { sessionStorage.setItem("plantlive-web-permission-dismissed", "1"); } catch { /* Ignore blocked storage. */ }
+  };
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return undefined;
     const openNativeCamera = (event) => {
@@ -63,6 +96,7 @@ function App() {
     <Analytics />
     <Header />
     {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")}>×</button></div>}
+    {webPermissionPrompt && <div className="permission-prompt-backdrop"><section className="permission-prompt" role="dialog" aria-modal="true" aria-labelledby="permission-title"><span><BellRing size={25} /></span><div><small>AVISOS DE CUIDADOS</small><h2 id="permission-title">¿Quieres recibir notificaciones?</h2><p>PlantLive puede avisarte de próximos riegos, abonos y revisiones aunque no tengas la página abierta.</p></div><div><button type="button" onClick={dismissWebNotifications}>Ahora no</button><button type="button" className="primary" onClick={requestWebNotifications}><BellRing size={16} /> Activar notificaciones</button></div></section></div>}
     <main><Routes>
       <Route path="/" element={<HomePage addPlant={garden.addPlant} notify={notify} authenticated={Boolean(user)} />} />
       <Route path="/panel" element={<ProtectedRoute><DashboardPage notify={notify} /></ProtectedRoute>} />

@@ -2,6 +2,14 @@ import { Camera, CameraDirection, CameraResultType, CameraSource } from "@capaci
 
 export async function capturePhoto(onChange, onError) {
   try {
+    let permissions = await Camera.checkPermissions();
+    if (permissions.camera !== "granted") {
+      permissions = await Camera.requestPermissions({ permissions: ["camera"] });
+    }
+    if (permissions.camera !== "granted") {
+      onError?.("PlantLive necesita permiso de cámara para hacer fotografías.");
+      return;
+    }
     const photo = await Camera.getPhoto({
       source: CameraSource.Camera,
       direction: CameraDirection.Rear,
