@@ -1,6 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
     <string name="app_name">PlantLive</string>
+    <string name="app_description">Identifica plantas, organiza sus cuidados y realiza un seguimiento de su evolución.</string>
     <string name="title_activity_main">PlantLive</string>
     <string name="package_name">es.plantlive.app</string>
     <string name="custom_url_scheme">es.plantlive.app</string>

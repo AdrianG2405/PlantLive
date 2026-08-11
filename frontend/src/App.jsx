@@ -29,6 +29,7 @@ import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { ChatPage } from "./pages/ChatPage";
 import { BlogArticlePage, BlogPage } from "./pages/BlogPage";
 import { PlantGuidePage, PlantGuidesPage } from "./pages/PlantGuidesPage";
+import { DeleteAccountPage } from "./pages/DeleteAccountPage";
 import { capturePhoto } from "./utils/nativeCamera";
 
 function App() {
@@ -43,11 +44,13 @@ function App() {
   }, []);
   const garden = usePlants(user, notify);
   const notifications = useCareNotifications(garden.upcoming, Boolean(user));
+  const notificationRequest = useRef(notifications.requestPermission);
+  notificationRequest.current = notifications.requestPermission;
   useEffect(() => {
     if (!Capacitor.isNativePlatform() || notifications.permission !== "prompt" || nativePermissionRequested.current) return undefined;
     nativePermissionRequested.current = true;
     const timer = window.setTimeout(() => {
-      notifications.requestPermission().catch((error) => notify(error.message));
+      notificationRequest.current().catch((error) => notify(error.message));
     }, 700);
     return () => window.clearTimeout(timer);
   }, [notifications.permission, notify]);
@@ -91,6 +94,7 @@ function App() {
       <Route path="/blog/:slug" element={<BlogArticlePage />} />
       <Route path="/plantas-guia" element={<PlantGuidesPage />} />
       <Route path="/plantas-guia/:slug" element={<PlantGuidePage />} />
+      <Route path="/eliminar-cuenta" element={<DeleteAccountPage notify={notify} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes></main>
     <PlantChatbot plants={garden.plants} authenticated={Boolean(user)} notify={notify} />

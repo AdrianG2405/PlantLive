@@ -18,9 +18,10 @@ const pages = {
   "/sobre-nosotros": { title: "Sobre PlantLive", description: "Conoce PlantLive y nuestra forma de ayudarte a cuidar tus plantas con información y seguimiento personalizados." },
   "/privacidad": { title: "Política de privacidad · PlantLive", description: "Información sobre privacidad y tratamiento de datos en PlantLive." },
   "/condiciones": { title: "Condiciones de uso · PlantLive", description: "Condiciones aplicables al uso de PlantLive." },
+  "/eliminar-cuenta": { title: "Eliminar una cuenta de PlantLive", description: "Solicita y completa la eliminación definitiva de tu cuenta y los datos asociados en PlantLive." },
 };
 
-const privatePaths = new Set(["/panel", "/plantas", "/calendario", "/ajustes", "/acceso", "/restablecer", "/verificar-email"]);
+const privatePaths = new Set(["/panel", "/plantas", "/calendario", "/ajustes", "/acceso", "/restablecer", "/verificar-email", "/eliminar-cuenta"]);
 
 function setMeta(name, content, property = false) {
   const selector = property ? `meta[property="${name}"]` : `meta[name="${name}"]`;
