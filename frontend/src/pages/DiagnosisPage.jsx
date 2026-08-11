@@ -3,6 +3,7 @@ import { AlertTriangle, CalendarPlus, Camera, CheckCircle2, Eye, ImagePlus, Leaf
 import { useNavigate } from "react-router-dom";
 import { createCareProfile, diagnosePlant, findPlantPhoto, userDataApi } from "../services/plantliveApi";
 import { trackEvent } from "../utils/analytics";
+import { capturePhoto } from "../utils/nativeCamera";
 
 export function DiagnosisPage({ plants, addPlant, notify, authenticated }) {
   const navigate = useNavigate();
@@ -124,7 +125,7 @@ export function DiagnosisPage({ plants, addPlant, notify, authenticated }) {
     <section className="section doctor diagnosis-doctor"><div className="doctor-copy"><span className="kicker light">ANÁLISIS VISUAL Y PLAGAS</span><h2>Una buena foto ayuda a acertar</h2><p>Puedes identificar una planta, revisar su estado y buscar indicios de cochinilla, araña roja, trips, pulgón, hongos u otros problemas.</p><ul><li>Fotografía la planta completa con buena luz</li><li>Añade primeros planos del haz y envés de las hojas</li><li>Si sospechas una plaga, muestra insectos, tallos, uniones y sustrato</li></ul></div><div className="diagnosis-panel"><div className="diagnosis-panel-head"><span>1</span><div><b>Añade imágenes de tu planta o de la plaga</b><small>Puedes subir hasta 4 vistas diferentes</small></div></div>
       <div className="diagnosis-photo-source">
         <label className="dropzone"><span className="upload-icon"><ImagePlus size={28} /></span><b>Elegir de la galería</b><small>Añade entre 1 y 4 fotografías</small><input type="file" accept="image/jpeg,image/png,image/webp" onChange={loadPhoto} /></label>
-        <label className="camera-capture"><Camera size={20} /><span><b>Hacer foto ahora</b><small>Abre directamente la cámara trasera</small></span><input type="file" accept="image/*" capture="environment" onChange={loadPhoto} /></label>
+        <button type="button" className="camera-capture" onClick={() => capturePhoto(loadPhoto, notify)}><Camera size={20} /><span><b>Hacer foto ahora</b><small>Abre directamente la cámara trasera</small></span></button>
       </div>
       {!!photos.length && <div className="diagnosis-photos">{photos.map((item, index) => <button key={index} onClick={() => setPhotos(photos.filter((_, photoIndex) => photoIndex !== index))}><img src={item} alt={`Vista ${index + 1}`} /><span>×</span></button>)}</div>}
       <div className="diagnosis-field-group"><div className="diagnosis-panel-head compact"><span>2</span><div><b>Cuéntanos lo que sabes</b><small>Es opcional, pero mejora el análisis</small></div></div><label><span>¿Ya está en tu jardín?</span><select value={plantId} onChange={(event) => setPlantId(event.target.value)}><option value="">No sé qué planta es — identificar con la foto</option>{plants.map((plant) => <option key={plant.instanceId} value={plant.instanceId}>{plant.nickname}</option>)}</select></label><label><span>¿Qué has observado?</span><textarea value={symptoms} onChange={(event) => setSymptoms(event.target.value)} placeholder="Ej. Tiene manchas amarillas desde hace una semana y la riego cada 4 días…" /></label></div>

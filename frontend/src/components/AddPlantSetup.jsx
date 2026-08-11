@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Camera, Droplets, ImagePlus, Leaf, X } from "lucide-react";
+import { capturePhoto } from "../utils/nativeCamera";
 
 const PhotoField = ({ label, hint, value, onChange }) => {
   const load = (event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) onChange({ file, preview: URL.createObjectURL(file) }); };
-  return <div className="setup-photo"><span>{value ? <img src={value.preview} alt={label} /> : <Camera size={28} />}</span><b>{label}</b><small>{hint}</small><div className="setup-photo-actions"><label><Camera size={16} /> Hacer foto<input type="file" accept="image/*" capture="environment" onChange={load} /></label><label><ImagePlus size={16} /> Galería<input type="file" accept="image/jpeg,image/png,image/webp" onChange={load} /></label></div></div>;
+  return <div className="setup-photo"><span>{value ? <img src={value.preview} alt={label} /> : <Camera size={28} />}</span><b>{label}</b><small>{hint}</small><div className="setup-photo-actions"><button type="button" onClick={() => capturePhoto(load)}><Camera size={16} /> Hacer foto</button><label><ImagePlus size={16} /> Galería<input type="file" accept="image/jpeg,image/png,image/webp" onChange={load} /></label></div></div>;
 };
 
 export function AddPlantSetup({ plant, onCancel, onConfirm, loading }) {

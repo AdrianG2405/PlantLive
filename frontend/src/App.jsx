@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import "./App.css";
 import { Footer } from "./components/Footer";
@@ -27,6 +28,7 @@ import { TermsPage } from "./pages/TermsPage";
 import { VerifyEmailPage } from "./pages/VerifyEmailPage";
 import { ChatPage } from "./pages/ChatPage";
 import { BlogArticlePage, BlogPage } from "./pages/BlogPage";
+import { capturePhoto } from "./utils/nativeCamera";
 
 function App() {
   const { user } = useAuth();
@@ -39,6 +41,23 @@ function App() {
   }, []);
   const garden = usePlants(user, notify);
   const notifications = useCareNotifications(garden.upcoming, Boolean(user));
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return undefined;
+    const openNativeCamera = (event) => {
+      const label = event.target.closest?.("label");
+      const input = label?.querySelector?.('input[type="file"][capture]');
+      if (!input) return;
+      event.preventDefault();
+      capturePhoto(({ target }) => {
+        const transfer = new DataTransfer();
+        transfer.items.add(target.files[0]);
+        input.files = transfer.files;
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+      }, notify);
+    };
+    document.addEventListener("click", openNativeCamera);
+    return () => document.removeEventListener("click", openNativeCamera);
+  }, [notify]);
   return <div className="app">
     <SeoManager />
     <Analytics />

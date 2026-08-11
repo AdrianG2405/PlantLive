@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { LocalNotifications } from "@capacitor/local-notifications";
 import { userDataApi } from "../services/plantliveApi";
 import { trackEvent } from "../utils/analytics";
 
@@ -18,13 +20,28 @@ const isStandalone = () => typeof window !== "undefined"
   && (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true);
 
 export function useCareNotifications(upcoming, enabled) {
-  const supported = typeof window !== "undefined" && "Notification" in window;
-  const [permission, setPermission] = useState(supported ? window.Notification.permission : "unsupported");
+  const native = Capacitor.isNativePlatform();
+  const supported = native || (typeof window !== "undefined" && "Notification" in window);
+  const [permission, setPermission] = useState(native ? "prompt" : supported ? window.Notification.permission : "unsupported");
   const [subscriptionStatus, setSubscriptionStatus] = useState("idle");
 
+  useEffect(() => {
+    if (!native) return;
+    LocalNotifications.checkPermissions().then(({ display }) => {
+      setPermission(display === "granted" ? "granted" : display === "denied" ? "denied" : "prompt");
+    }).catch(() => setPermission("prompt"));
+  }, [native]);
+
   const showNotification = useCallback(async (title, options) => {
-    // Mobile Safari only supports displaying notifications through a service worker.
     try {
+      if (native) {
+        await LocalNotifications.schedule({ notifications: [{
+          id: Math.floor(Date.now() % 2147483647), title, body: options?.body || "",
+          schedule: { at: new Date(Date.now() + 1000) }, extra: { source: "plantlive-care" },
+        }] });
+        return true;
+      }
+      // Mobile Safari only supports displaying notifications through a service worker.
       if ("serviceWorker" in navigator) {
         const registration = await navigator.serviceWorker.getRegistration();
         if (registration?.showNotification) {
@@ -37,9 +54,32 @@ export function useCareNotifications(upcoming, enabled) {
     } catch {
       return false;
     }
-  }, []);
+  }, [native]);
+
+  const scheduleNativeCare = useCallback(async () => {
+    if (!native || !enabled || permission !== "granted") return false;
+    const pending = await LocalNotifications.getPending();
+    const ours = pending.notifications.filter((item) => item.extra?.source === "plantlive-care");
+    if (ours.length) await LocalNotifications.cancel({ notifications: ours.map(({ id }) => ({ id })) });
+    const now = new Date();
+    const notifications = upcoming.slice(0, 50).map((item, index) => {
+      const at = new Date(`${item.date}T09:00:00`);
+      if (at <= now) at.setTime(now.getTime() + 5000 + index * 1000);
+      return {
+        id: 10000 + index,
+        title: `${item.icon || "🌿"} ${item.action}`,
+        body: `${item.plant} necesita tu atención.`,
+        schedule: { at },
+        extra: { source: "plantlive-care", careId: item.id },
+      };
+    });
+    if (notifications.length) await LocalNotifications.schedule({ notifications });
+    setSubscriptionStatus("active");
+    return true;
+  }, [enabled, native, permission, upcoming]);
 
   const check = useCallback(async () => {
+    if (native) return;
     if (!enabled || !supported || window.Notification.permission !== "granted") return;
     const today = new Date().toISOString().slice(0, 10);
     for (const item of upcoming.filter((candidate) => candidate.date <= today)) {
@@ -56,7 +96,7 @@ export function useCareNotifications(upcoming, enabled) {
         try { localStorage.setItem(key, "1"); } catch { /* Notification was still delivered. */ }
       }
     }
-  }, [enabled, showNotification, supported, upcoming]);
+  }, [enabled, native, showNotification, supported, upcoming]);
 
   useEffect(() => {
     check().catch(() => {});
@@ -65,6 +105,7 @@ export function useCareNotifications(upcoming, enabled) {
   }, [check]);
 
   const syncPushSubscription = useCallback(async () => {
+    if (native) return scheduleNativeCare();
     if (!enabled || !supported || window.Notification.permission !== "granted") return false;
     const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY?.trim();
     if (!vapidKey) throw new Error("Falta configurar VITE_VAPID_PUBLIC_KEY en Vercel.");
@@ -86,7 +127,7 @@ export function useCareNotifications(upcoming, enabled) {
     setSubscriptionStatus("active");
     if (created) trackEvent("notifications_activated");
     return true;
-  }, [enabled, supported]);
+  }, [enabled, native, scheduleNativeCare, supported]);
 
   useEffect(() => {
     if (!enabled || permission !== "granted") {
@@ -97,6 +138,20 @@ export function useCareNotifications(upcoming, enabled) {
   }, [enabled, permission, syncPushSubscription]);
 
   const requestPermission = async () => {
+    if (native) {
+      setSubscriptionStatus("syncing");
+      let status = await LocalNotifications.checkPermissions();
+      if (status.display !== "granted") status = await LocalNotifications.requestPermissions();
+      const result = status.display === "granted" ? "granted" : "denied";
+      setPermission(result);
+      if (result !== "granted") {
+        setSubscriptionStatus("error");
+        throw new Error("Android no concedió el permiso. Actívalo en Ajustes → Aplicaciones → PlantLive → Notificaciones.");
+      }
+      trackEvent("notifications_activated", { platform: "android" });
+      setSubscriptionStatus("active");
+      return result;
+    }
     if (isAppleMobile() && !isStandalone()) {
       throw new Error("En iPhone o iPad, abre esta web en Safari, pulsa Compartir → Añadir a pantalla de inicio y activa los avisos desde la app instalada.");
     }

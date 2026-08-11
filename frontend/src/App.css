@@ -186,6 +186,10 @@ body{background:radial-gradient(circle at 10% 5%,#eef8e8 0,transparent 24%),#f7f
   footer span{font-size:11px;line-height:1.6}
 }
 
+/* Los botones de cámara nativa conservan el aspecto de los selectores de archivo. */
+.setup-photo-actions button,.plant-gallery-actions button,.evolution-photo-actions button{display:flex;align-items:center;justify-content:center;gap:5px;border:1px solid #b9cdbb;border-radius:8px;padding:7px 9px;background:#fff;color:var(--green);font-family:inherit;font-size:11px;font-weight:800;cursor:pointer}
+.plant-gallery-actions button.disabled,.plant-gallery-actions button:disabled{opacity:.45;cursor:not-allowed}
+
 .profile-photo-ring{cursor:default;touch-action:auto}
 .profile-crop-backdrop{position:fixed;z-index:120;inset:0;display:grid;place-items:center;padding:18px;background:#10241bd9;backdrop-filter:blur(8px)}
 .profile-crop-modal{width:min(610px,100%);max-height:94dvh;overflow:auto;padding:24px;border-radius:22px;background:#fff;box-shadow:0 30px 90px #0007}
