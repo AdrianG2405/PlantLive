@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 Disallow: /panel
-Disallow: /plantas
+Disallow: /plantas$
 Disallow: /calendario
 Disallow: /ajustes
 Disallow: /acceso
