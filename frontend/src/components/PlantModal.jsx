@@ -32,11 +32,13 @@ const prepareEvolutionPhoto = (file) => new Promise((resolve, reject) => {
 
 const EvolutionPhotoActions = ({ onPhoto, notify }) => <div className="evolution-photo-actions"><button type="button" onClick={() => capturePhoto(onPhoto, notify)}><Camera size={15} /> Hacer foto</button><label><ImagePlus size={15} /> Galería<input type="file" accept="image/jpeg,image/png,image/webp" onChange={onPhoto} /></label></div>;
 
-export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, notify }) {
+export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, onCompleteWatering, notify }) {
   const [draft, setDraft] = useState(plant);
   const [history, setHistory] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [refreshingCare, setRefreshingCare] = useState(false);
+  const [wateringFeedbackOpen, setWateringFeedbackOpen] = useState(false);
+  const [savingWatering, setSavingWatering] = useState(false);
   const [treatment, setTreatment] = useState({ problem: "", product: "", dose: "", date: new Date().toISOString().slice(0, 10) });
   const [analyzingLog, setAnalyzingLog] = useState("");
   const cropDrag = useRef(null);
@@ -56,6 +58,17 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
     if (type === "water") {
       const today = new Date().toISOString().slice(0, 10);
       change({ nextWater: nextDateFrom(today, seasonalCareDays(draft, "riego", new Date())) });
+    }
+  };
+  const completeTodayWatering = async (moisture) => {
+    const today = new Date().toISOString().slice(0, 10);
+    setSavingWatering(true);
+    try {
+      await onCompleteWatering({ id: `${draft.instanceId}-water-${today}`, date: today, plant: draft.nickname || draft.nombreComun, plantInstanceId: draft.instanceId }, moisture);
+      setWateringFeedbackOpen(false);
+      notify?.(moisture === "wet" ? "Ampliaremos poco a poco el intervalo." : moisture === "dry" ? "Adelantaremos la próxima revisión." : `${draft.nickname || draft.nombreComun} marcada como regada.`);
+    } finally {
+      setSavingWatering(false);
     }
   };
   const addPhoto = (event) => {
@@ -170,6 +183,7 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
     finally { setAnalyzingLog(""); }
   };
   return <div className="modal-backdrop" onClick={onClose}><section className="modal plant-profile" onClick={(event) => event.stopPropagation()}>
+    {wateringFeedbackOpen && <div className="calendar-detail-backdrop" onClick={() => !savingWatering && setWateringFeedbackOpen(false)}><section className="watering-feedback" onClick={(event) => event.stopPropagation()}><Droplets size={32} /><h2>¿Cómo estaba el sustrato?</h2><p>Tu respuesta permite que PlantLive aprenda el ritmo real de este ejemplar.</p><div><button disabled={savingWatering} onClick={() => completeTodayWatering("wet")}>Aún húmedo</button><button disabled={savingWatering} onClick={() => completeTodayWatering("right")}>En su punto</button><button disabled={savingWatering} onClick={() => completeTodayWatering("dry")}>Demasiado seco</button></div></section></div>}
     <button className="close" onClick={onClose} aria-label="Cerrar">×</button><span className="kicker">FICHA DE CUIDADOS</span>
     <input className="nickname" value={draft.nickname} onChange={(event) => change({ nickname: event.target.value })} /><i>{draft.nombreCientifico}</i>
     <section className="plant-gallery profile-photo-editor"><div className="profile-photo-summary"><div className="profile-photo-ring">{(draft.plantPhoto || draft.gallery?.[0] || draft.imagen) ? <img draggable="false" style={{ objectPosition: `${profilePosition.x}% ${profilePosition.y}%`, transform: `scale(${draft.profilePhotoZoom || 1})`, transformOrigin: `${profilePosition.x}% ${profilePosition.y}%` }} src={draft.plantPhoto || draft.gallery?.[0] || draft.imagen} alt={`Foto de perfil de ${draft.nickname}`} /> : <Leaf size={38} />}</div><div><span className="kicker">FOTO DE PERFIL</span><h3>Editar foto de perfil de la planta</h3><p>Pulsa «Usar de perfil» en una imagen para abrir el editor grande, moverla y ampliar su encuadre.</p></div></div><div className="plant-gallery-head"><div><h3>Galería y evolución</h3><small>Añade hasta 4 fotos, elige la portada o elimina las que no quieras.</small></div><div className="plant-gallery-actions"><button type="button" disabled={(draft.gallery || []).length >= 4} className={(draft.gallery || []).length >= 4 ? "disabled" : ""} onClick={() => capturePhoto(addPhoto, notify)}><Camera size={16} /> Hacer foto</button><label className={(draft.gallery || []).length >= 4 ? "disabled" : ""}><ImagePlus size={16} /> Elegir de galería<input disabled={(draft.gallery || []).length >= 4} type="file" accept="image/jpeg,image/png,image/webp" onChange={addPhoto} /></label></div></div>
@@ -185,7 +199,7 @@ export function PlantModal({ plant, onClose, onUpdate, onRefreshCare, onRemove, 
       <label>Último trasplante<input type="date" value={draft.lastRepot || ""} onChange={(event) => change({ lastRepot: event.target.value })} /></label>
     </div>
     <button className="followup-button" onClick={refreshCare} disabled={refreshingCare}><RefreshCw size={16} /> {refreshingCare ? "Analizando condiciones…" : "Actualizar cuidados según mi casa"}</button>
-    <section className="watering-planner"><div className="watering-planner-head"><span><Droplets size={21} /></span><div><h3>Planificar el próximo riego</h3><p>Si el sustrato aún está húmedo, cambia la fecha. El calendario recalculará los siguientes riegos desde el día que elijas.</p></div></div><div className="watering-planner-controls"><label><CalendarDays size={17} /><span>Próxima fecha</span><input type="date" min={new Date().toISOString().slice(0, 10)} value={draft.nextWater || ""} onChange={(event) => change({ nextWater: event.target.value })} /></label><button type="button" onClick={() => addCare("water")}><Droplets size={17} /> La he regado hoy</button></div>{draft.nextWater && <small>Próximo riego planificado: <b>{new Date(`${draft.nextWater}T12:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}</b></small>}</section>
+    <section className="watering-planner"><div className="watering-planner-head"><span><Droplets size={21} /></span><div><h3>Planificar el próximo riego</h3><p>Si el sustrato aún está húmedo, cambia la fecha. El calendario recalculará los siguientes riegos desde el día que elijas.</p></div></div><div className="watering-planner-controls"><label><CalendarDays size={17} /><span>Próxima fecha</span><input type="date" min={new Date().toISOString().slice(0, 10)} value={draft.nextWater || ""} onChange={(event) => change({ nextWater: event.target.value })} /></label><button type="button" onClick={() => setWateringFeedbackOpen(true)}><Droplets size={17} /> La he regado hoy</button></div>{draft.nextWater && <small>Próximo riego planificado: <b>{new Date(`${draft.nextWater}T12:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}</b></small>}</section>
     <aside className="plant-chat-invite"><span><MessageCircle size={22} /></span><div><b>¿Tienes alguna duda sobre esta planta?</b><p>Pregunta al asistente de PlantLive sobre sus hojas, riego, luz o cuidados. También puedes enviarle una foto y continuar la conversación.</p></div><button type="button" onClick={askAboutPlant}>Preguntar al chatbot</button></aside>
     <div className="care-grid"><div><b>☀️ Luz</b><p>{draft.luz}</p></div><div><b>📍 Ubicación ideal</b><p>{draft.ubicacion}</p></div><div><b>🪴 Sustrato recomendado</b><p>{draft.sustrato}</p></div><div><b>💧 Riego actual</b><p>Revisar aproximadamente cada {seasonalCareDays(draft, "riego")} días. {draft.riegoIndicador || "Comprueba antes la humedad."}</p><small>Verano: {draft.riegoVeranoDias || draft.riegoDias} días · Invierno: {draft.riegoInviernoDias || draft.riegoDias} días</small></div><div><b>🧪 Abono y fertilización</b><p>{draft.fertilizante}.</p><small>Primavera: {feedingInterval(draft.abonoPrimaveraDias ?? draft.abonoDias)} · Verano: {feedingInterval(draft.abonoVeranoDias ?? draft.abonoDias)} · Otoño: {feedingInterval(draft.abonoOtonoDias ?? draft.abonoDias)} · Invierno: {feedingInterval(draft.abonoInviernoDias ?? draft.abonoDias)}.</small>{draft.abonoIndicador && <p>{draft.abonoIndicador}</p>}</div><div><b>🌡️ Ambiente</b><p>{draft.temperatura} · Humedad {draft.humedad}</p></div></div>
     <div className="warning">🐾 {draft.toxicidad}</div>

@@ -20,7 +20,7 @@ const preparePropagationPhoto = (file) => new Promise((resolve, reject) => {
 });
 
 export function MyPlantsPage({
-  plants, upcoming, addPlant, updatePlant, refreshPlantCare, removePlant, markDone,
+  plants, upcoming, addPlant, updatePlant, refreshPlantCare, removePlant, markDone, completeWatering,
   notifications, notify, loadingPlants, authenticated, weatherSummary,
 }) {
   const [selected, setSelected] = useState(null);
@@ -153,6 +153,6 @@ export function MyPlantsPage({
       <div className="modern-agenda">{upcoming.length ? upcoming.slice(0, 6).map((item) => <article key={item.id}><time><b>{new Date(`${item.date}T12:00`).toLocaleDateString("es-ES", { day: "2-digit" })}</b><small>{new Date(`${item.date}T12:00`).toLocaleDateString("es-ES", { month: "short" })}</small></time><span className="agenda-care-icon">{item.icon}</span><div><b>{item.action}</b><small>{item.plant}</small></div><button onClick={() => markDone(item)} title="Marcar como realizado"><Check size={17} /></button></article>) : <div className="agenda-empty"><CalendarDays size={30} /><p>Añade una planta para crear automáticamente sus próximos cuidados.</p></div>}</div>
     </section>
 
-    {selected && <PlantModal plant={plants.find((plant) => plant.instanceId === selected.instanceId) || selected} onClose={() => setSelected(null)} onUpdate={updatePlant} onRefreshCare={refreshPlantCare} onRemove={removePlant} notify={notify} />}
+    {selected && <PlantModal plant={plants.find((plant) => plant.instanceId === selected.instanceId) || selected} onClose={() => setSelected(null)} onUpdate={updatePlant} onRefreshCare={refreshPlantCare} onRemove={removePlant} onCompleteWatering={completeWatering} notify={notify} />}
   </div>;
 }
