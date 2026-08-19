@@ -28,14 +28,16 @@ export function DiagnosisPage({ plants, addPlant, notify, authenticated }) {
     const image = new Image();
     const url = URL.createObjectURL(file);
     image.onload = () => {
-      const maxSize = 1280;
+      // Keep uploads quick on mobile networks while retaining enough detail for
+      // leaf, pest and substrate analysis.
+      const maxSize = 1024;
       const scale = Math.min(1, maxSize / Math.max(image.width, image.height));
       const canvas = document.createElement("canvas");
       canvas.width = Math.round(image.width * scale);
       canvas.height = Math.round(image.height * scale);
       canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL("image/jpeg", 0.84));
+      resolve(canvas.toDataURL("image/jpeg", 0.76));
     };
     image.onerror = () => { URL.revokeObjectURL(url); reject(new Error("No se pudo leer la imagen.")); };
     image.src = url;

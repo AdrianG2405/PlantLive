@@ -465,6 +465,9 @@ export function diagnosePlant({ imagenes, sintomas, planta }) {
   return request("/diagnosticar", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ imagenes, sintomas, planta }),
+    // Identification plus visual diagnosis can involve more than one external
+    // provider and routinely exceeds the generic 30-second request limit.
+    timeout: 120000,
   });
 }
 
