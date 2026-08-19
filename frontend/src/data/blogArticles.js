@@ -18,8 +18,8 @@ export const blogArticles = [
   {
     slug: "hojas-amarillas-plantas",
     category: "PROBLEMAS FRECUENTES",
-    title: "Hojas amarillas en plantas: causas y qué hacer",
-    description: "Descubre por qué amarillean las hojas y cómo distinguir exceso de riego, falta de luz, plagas o envejecimiento natural.",
+    title: "¿Por qué mi planta tiene hojas amarillas?",
+    description: "Descubre por qué tu planta tiene hojas amarillas y cómo distinguir exceso de riego, falta de luz, plagas o envejecimiento natural.",
     intro: "Una hoja amarilla es un síntoma, no un diagnóstico. La posición de la hoja, la humedad del sustrato y los cambios recientes ayudan a encontrar la causa.",
     sections: [
       ["Primero comprueba el riego", "Si el sustrato permanece mojado muchos días, huele mal o los tallos están blandos, revisa drenaje y raíces. Si está muy seco y se separa de la maceta, hidrata de forma gradual y deja escurrir."],
@@ -182,6 +182,22 @@ export const blogArticles = [
     ],
     tips: ["Deja instrucciones y cantidades medidas", "Agrupa solo plantas con necesidades compatibles", "Ajusta los próximos riegos en PlantLive"],
     cta: "Preparar mis cuidados de vacaciones", ctaTo: "/plantas",
+  },
+  {
+    slug: "que-le-pasa-a-mi-planta",
+    category: "DIAGNÓSTICO DE PLANTAS",
+    title: "¿Qué le pasa a mi planta? Cómo identificar el problema",
+    description: "Aprende a revisar hojas, tallos, raíces, riego y luz para entender por qué una planta está enferma, decaída o cambiando de color.",
+    intro: "Cuando una planta cambia de aspecto, conviene observar varias señales antes de aplicar un tratamiento. El color y la posición de las hojas, la humedad del sustrato, la luz y los cambios recientes ayudan a separar las causas más frecuentes.",
+    sections: [
+      ["Observa toda la planta", "Mira si el problema afecta a una hoja aislada, a las hojas inferiores, a los brotes nuevos o a toda la planta. Fotografía el conjunto y después los detalles para poder comparar la evolución."],
+      ["Comprueba la humedad y las raíces", "Toca el sustrato a distinta profundidad y revisa que la maceta tenga salida de agua. Un sustrato mojado durante muchos días, mal olor o tallos blandos puede indicar exceso de humedad; hojas flácidas con tierra muy seca pueden señalar falta de agua."],
+      ["Relaciona el síntoma con la luz", "Tallos alargados y hojas pequeñas suelen aparecer con poca claridad. Zonas secas o blanqueadas pueden surgir tras una exposición brusca al sol. Ten en cuenta cualquier cambio reciente de ubicación."],
+      ["Busca plagas en lugares ocultos", "Revisa el envés de las hojas, las uniones de los tallos y los brotes. Puntos móviles, telarañas finas, bultos adheridos, manchas plateadas o superficies pegajosas justifican aislar la planta y confirmar la plaga antes de tratarla."],
+      ["Cambia una sola condición", "Evita regar, abonar, trasplantar y aplicar productos a la vez. Corrige primero la causa más probable y observa si el daño se detiene. Las hojas dañadas no siempre recuperan su aspecto, por lo que el crecimiento nuevo es una señal más útil."],
+    ],
+    tips: ["Anota los cambios de las últimas semanas", "Haz fotos con luz natural y sin filtros", "No fertilices una planta estresada sin conocer la causa"],
+    cta: "Analizar qué le pasa a mi planta", ctaTo: "/diagnostico",
   },
 ];
 

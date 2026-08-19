@@ -92,5 +92,20 @@ export function HomePage({ addPlant, notify, authenticated }) {
       <form className={`ai-search ${loading ? "is-loading" : ""}`} onSubmit={search}><span><Search size={23} /></span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Ej. calatea orbifolia, olivo, planta del dinero…" /><button className="primary" disabled={loading}>{loading ? <><span className="spinner" /> Buscando especies</> : <><Sparkles size={17} /> Buscar con IA</>}</button></form>
       {!results.length && <div className="quick-plants">{starterPlants.map((plant) => <button key={plant.id} onClick={() => selectStarter(plant)}>🌿 {plant.nombreComun}</button>)}</div>}
       {!!results.length && <><div className="results-summary"><b>{results.length} especies encontradas</b><span>Resultados taxonómicos directos; la IA solo prepara la ficha que elijas.</span></div><div className="plant-results-grid">{results.map((plant) => <PlantResult key={plant.id} plant={plant} onAdd={add} onWish={addWish} adding={addingId === plant.id} />)}</div></>}
-    </section><AddPlantSetup plant={pendingPlant} onCancel={() => setPendingPlant(null)} onConfirm={confirmAdd} loading={Boolean(addingId)} /></>;
+    </section>
+    <section className="section seo-discovery" aria-labelledby="plant-help-title">
+      <span className="kicker">AYUDA PARA TUS PLANTAS</span>
+      <h2 id="plant-help-title">Respuestas para cuidar e identificar plantas</h2>
+      <p>Consulta guías claras sobre hojas amarillas, riego, luz, plagas y otros problemas frecuentes de las plantas de interior.</p>
+      <div>
+        <Link to="/aplicacion-cuidar-plantas"><b>Aplicación para cuidar plantas</b><span>Organiza tu colección y todos sus cuidados.</span><ArrowRight size={17} /></Link>
+        <Link to="/identificar-plantas-por-foto"><b>Identificar plantas por foto</b><span>Descubre una especie usando imágenes claras.</span><ArrowRight size={17} /></Link>
+        <Link to="/recordatorio-riego-plantas"><b>Recordatorios de riego</b><span>Organiza revisiones y registra cuándo has regado.</span><ArrowRight size={17} /></Link>
+        <Link to="/blog/que-le-pasa-a-mi-planta"><b>¿Qué le pasa a mi planta?</b><span>Revisa síntomas y encuentra posibles causas.</span><ArrowRight size={17} /></Link>
+        <Link to="/blog/hojas-amarillas-plantas"><b>Hojas amarillas en plantas</b><span>Distingue exceso de riego, falta de luz y otros problemas.</span><ArrowRight size={17} /></Link>
+        <Link to="/blog/cuidado-plantas-interior"><b>Cómo cuidar plantas de interior</b><span>Guía completa de riego, luz, sustrato y abono.</span><ArrowRight size={17} /></Link>
+        <Link to="/plantas-guia"><b>Guías por especie</b><span>Busca cuidados para monstera, poto, calatea y más plantas.</span><ArrowRight size={17} /></Link>
+      </div>
+    </section>
+    <AddPlantSetup plant={pendingPlant} onCancel={() => setPendingPlant(null)} onConfirm={confirmAdd} loading={Boolean(addingId)} /></>;
 }

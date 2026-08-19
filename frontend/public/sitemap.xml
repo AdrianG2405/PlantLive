@@ -2,6 +2,9 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://www.plantlive.es/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
   <url><loc>https://www.plantlive.es/diagnostico</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.plantlive.es/aplicacion-cuidar-plantas</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.plantlive.es/identificar-plantas-por-foto</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://www.plantlive.es/recordatorio-riego-plantas</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
   <url><loc>https://www.plantlive.es/chatbot</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://www.plantlive.es/blog</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>
   <url><loc>https://www.plantlive.es/plantas-guia</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
@@ -18,6 +21,7 @@
   <url><loc>https://www.plantlive.es/blog/cuidar-plantas-vacaciones</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://www.plantlive.es/blog/cuidado-plantas-interior</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
   <url><loc>https://www.plantlive.es/blog/hojas-amarillas-plantas</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://www.plantlive.es/blog/que-le-pasa-a-mi-planta</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
   <url><loc>https://www.plantlive.es/blog/cuando-regar-plantas-interior</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://www.plantlive.es/blog/elegir-maceta-planta</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://www.plantlive.es/blog/mejor-sustrato-plantas-interior</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>

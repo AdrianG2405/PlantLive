@@ -30,6 +30,7 @@ import { ChatPage } from "./pages/ChatPage";
 import { BlogArticlePage, BlogPage } from "./pages/BlogPage";
 import { PlantGuidePage, PlantGuidesPage } from "./pages/PlantGuidesPage";
 import { DeleteAccountPage } from "./pages/DeleteAccountPage";
+import { SeoLandingPage } from "./pages/SeoLandingPage";
 import { capturePhoto } from "./utils/nativeCamera";
 
 function App() {
@@ -94,6 +95,7 @@ function App() {
       <Route path="/blog/:slug" element={<BlogArticlePage />} />
       <Route path="/plantas-guia" element={<PlantGuidesPage />} />
       <Route path="/plantas-guia/:slug" element={<PlantGuidePage />} />
+      <Route path="/:slug" element={<SeoLandingPage />} />
       <Route path="/eliminar-cuenta" element={<DeleteAccountPage notify={notify} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes></main>
